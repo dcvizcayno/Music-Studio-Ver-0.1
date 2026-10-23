@@ -91,3 +91,22 @@ export interface SystemStatusData {
   memory_headroom_gb: number;
   active_jobs_count: number;
 }
+
+export type AudioFormatId = 'wav' | 'aiff' | 'flac' | 'alac' | 'mp3' | 'aac' | 'ogg' | 'opus';
+
+export interface AudioFormatOption {
+  id: AudioFormatId;
+  name: string;
+  fullName: string;
+  extension: string;
+  isLossless: boolean;
+  tag: string;
+}
+
+export interface EncoderOptions {
+  format: AudioFormatId;
+  sampleRate: 44100 | 48000 | 96000;
+  bitDepth: 16 | 24 | 32;
+  bitrateKbps: 128 | 192 | 256 | 320;
+  channels: 1 | 2;
+}

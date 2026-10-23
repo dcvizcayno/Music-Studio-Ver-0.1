@@ -39,6 +39,18 @@
       "duration_seconds": 90
     },
     {
+      "id": "rnb",
+      "name": "Alt R&B",
+      "genre": "alternative R&B, dark ambient soul, moody trap soul",
+      "instruments": "subtle 808 glide, filtered rhodes, atmospheric synth swells, pitched vocal chops",
+      "mood": "sensual, nocturnal, moody",
+      "vocal_type": "silky falsetto lead with warm intimate lower octave double",
+      "tempo_bpm": 92,
+      "steps": 50,
+      "cfg": 3.1,
+      "duration_seconds": 85
+    },
+    {
       "id": "hiphop",
       "name": "Lo-Fi Hip Hop",
       "genre": "lo-fi hip hop, neo-soul chillout",

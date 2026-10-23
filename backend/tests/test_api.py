@@ -4,8 +4,11 @@ Tests workflow template filling, prompt encoding style constraints, memory guard
 """
 
 import os
-import pytest
 from pathlib import Path
+try:
+    import pytest
+except ImportError:
+    pytest = None
 
 from app.config import settings
 from app.services.memory_guard import memory_guard
@@ -83,3 +86,90 @@ def test_workflow_builder_cover():
     assert seed == 999
     assert graph["5"]["inputs"]["audio"] == "original_track.wav"
     assert graph["3"]["inputs"]["steps"] == 50
+
+
+def test_audio_format_configs():
+    """Verify all 8 requested audio formats exist in configuration."""
+    from app.services.audio_encoder import FORMAT_CONFIGS
+    expected_formats = ["wav", "aiff", "flac", "alac", "mp3", "aac", "ogg", "opus"]
+    for fmt in expected_formats:
+        assert fmt in FORMAT_CONFIGS, f"Missing format config for {fmt}"
+        assert "ext" in FORMAT_CONFIGS[fmt]
+        assert "mime" in FORMAT_CONFIGS[fmt]
+        assert "name" in FORMAT_CONFIGS[fmt]
+
+
+def test_genre_section_structure_rules():
+    """Verify section structure standards for Pop, Rock/Grunge, Acoustic/Alt R&B, and Rap/Hip-Hop."""
+    import asyncio
+    from app.services.ollama_client import ollama_client
+
+    # Test Pop fallback format
+    pop_res = asyncio.run(ollama_client.draft_lyrics_and_style(
+        idea="A dancefloor moment of freedom",
+        genre="modern pop, synth-pop"
+    ))
+    pop_lyrics = pop_res["lyrics"]
+    assert "[intro]" in pop_lyrics
+    assert "[verse 1]" in pop_lyrics
+    assert "[pre-chorus]" in pop_lyrics
+    assert "[chorus]" in pop_lyrics
+    assert "[post-chorus]" in pop_lyrics
+    assert "[bridge]" in pop_lyrics
+    assert "[final chorus]" in pop_lyrics
+    assert "[outro]" in pop_lyrics
+    assert pop_res["character_count"] <= 5000
+
+    # Test Rock / Grunge fallback format (must include [instrumental solo])
+    rock_res = asyncio.run(ollama_client.draft_lyrics_and_style(
+        idea="Overdriven catharsis in an empty garage",
+        genre="alternative rock, grunge"
+    ))
+    rock_lyrics = rock_res["lyrics"]
+    assert "[intro]" in rock_lyrics
+    assert "[instrumental solo]" in rock_lyrics
+    assert "[bridge]" in rock_lyrics
+    assert "[final chorus]" in rock_lyrics
+    assert rock_res["character_count"] <= 5000
+
+    # Test Rap / Hip Hop / Lo-Fi fallback format (must follow [intro], [hook/chorus], [verse], [hook/chorus], [verse], [outro])
+    rap_res = asyncio.run(ollama_client.draft_lyrics_and_style(
+        idea="Late night subway rides and vinyl dust",
+        genre="lo-fi hip hop, boom bap"
+    ))
+    rap_lyrics = rap_res["lyrics"]
+    assert "[intro]" in rap_lyrics
+    assert "[hook/chorus]" in rap_lyrics
+    assert "[verse 1]" in rap_lyrics
+    assert "[verse 2]" in rap_lyrics
+    assert "[outro]" in rap_lyrics
+    assert rap_res["character_count"] <= 5000
+
+    # Test Acoustic / Alt R&B fallback format
+    rnb_res = asyncio.run(ollama_client.draft_lyrics_and_style(
+        idea="Quiet room and tape delay reflections",
+        genre="alternative r&b, moody trap soul"
+    ))
+    rnb_lyrics = rnb_res["lyrics"]
+    assert "[intro]" in rnb_lyrics
+    assert "[verse 1]" in rnb_lyrics
+    assert "[pre-chorus]" in rnb_lyrics
+    assert "[chorus]" in rnb_lyrics
+    assert "[bridge]" in rnb_lyrics
+    assert "[final chorus]" in rnb_lyrics
+    assert "[outro]" in rnb_lyrics
+    assert rnb_res["character_count"] <= 5000
+
+
+if __name__ == "__main__":
+    print("Running backend unit tests...")
+    test_parameter_size_parsing()
+    test_format_bytes()
+    test_memory_guard_headroom_check()
+    test_workflow_builder_text_to_song()
+    test_workflow_builder_cover()
+    test_audio_format_configs()
+    test_genre_section_structure_rules()
+    print("All backend tests passed successfully!")
+
+

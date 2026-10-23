@@ -67,6 +67,18 @@ async def get_presets():
                 duration_seconds=60
             ),
             StylePreset(
+                id="rnb",
+                name="Alt R&B",
+                genre="alternative r&b, moody trap soul, ambient",
+                instruments="wobbly rhodes, filtered 808 glide, pitched vocal samples, tape delay",
+                mood="sensual, melancholic, nocturnal",
+                vocal_type="smooth emotive falsetto, pitched backing vocal harmonies",
+                tempo_bpm=92,
+                steps=50,
+                cfg=3.0,
+                duration_seconds=90
+            ),
+            StylePreset(
                 id="ballad",
                 name="Cinematic Piano Ballad",
                 genre="cinematic ballad, orchestral pop",

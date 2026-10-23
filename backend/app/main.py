@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.db import init_db
 from app.routers import (
+    audio,
     capabilities,
     library,
     models,
@@ -74,6 +75,7 @@ app.include_router(capabilities.router)
 app.include_router(models.router)
 app.include_router(prompt.router)
 app.include_router(songs.router)
+app.include_router(audio.router)
 app.include_router(voices.router)
 app.include_router(library.router)
 app.include_router(status.router)
