@@ -1,0 +1,63 @@
+{
+  "workflow_id": "cover",
+  "name": "YuE2 Audio-Conditioned Cover",
+  "description": "Transforms an existing audio source into a new genre or vocal style while keeping melodic contours.",
+  "required_nodes": [
+    "YuE2Sampler",
+    "YuE2CheckpointLoader",
+    "LoadAudio",
+    "YuE2TextConditioning",
+    "YuE2CoverConditioning",
+    "YuE2AudioDecoder",
+    "SaveAudio"
+  ],
+  "parameter_mapping": {
+    "lyrics": {
+      "node_id": "6",
+      "input_name": "prompt",
+      "type": "string"
+    },
+    "style_tags": {
+      "node_id": "6",
+      "input_name": "style_tags",
+      "type": "string"
+    },
+    "source_audio": {
+      "node_id": "5",
+      "input_name": "audio",
+      "type": "audio_filename"
+    },
+    "melody_retention": {
+      "node_id": "7",
+      "input_name": "melody_retention",
+      "type": "float",
+      "default": 0.70
+    },
+    "seed": {
+      "node_id": "3",
+      "input_name": "seed",
+      "type": "integer"
+    },
+    "steps": {
+      "node_id": "3",
+      "input_name": "steps",
+      "type": "integer",
+      "default": 60
+    },
+    "duration": {
+      "node_id": "3",
+      "input_name": "duration_seconds",
+      "type": "integer",
+      "default": 90
+    },
+    "model_name": {
+      "node_id": "4",
+      "input_name": "model_name",
+      "type": "string"
+    }
+  },
+  "output_node": {
+    "node_id": "12",
+    "output_type": "audio"
+  }
+}

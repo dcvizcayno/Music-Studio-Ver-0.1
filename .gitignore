@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.bak
+*.bak.*
+
+# Data, media outputs, and caches
+outputs/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/*.db-journal
+voices/
+models/
+logs/*.log
+logs/*.pid
+
+# Build and IDE
+dist/
+build/
+.DS_Store
+.vscode/
+.idea/

@@ -1,0 +1,105 @@
+{
+  "3": {
+    "inputs": {
+      "seed": 42,
+      "steps": 60,
+      "cfg": 3.5,
+      "duration_seconds": 90,
+      "temperature": 1.0,
+      "model": [
+        "4",
+        0
+      ],
+      "conditioning": [
+        "7",
+        0
+      ]
+    },
+    "class_type": "YuE2Sampler",
+    "_meta": {
+      "title": "YuE2 Music Sampler"
+    }
+  },
+  "4": {
+    "inputs": {
+      "model_name": "yue2-1b-preview.safetensors",
+      "precision": "bf16",
+      "device": "mps"
+    },
+    "class_type": "YuE2CheckpointLoader",
+    "_meta": {
+      "title": "Load YuE2 Checkpoint"
+    }
+  },
+  "5": {
+    "inputs": {
+      "audio": "source_cover.wav",
+      "upload": "audio"
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "Load Source Track"
+    }
+  },
+  "6": {
+    "inputs": {
+      "prompt": "[verse]\nRewritten melody line\n[chorus]\nUnder a new rhythm and shine",
+      "style_tags": "synthwave, 80s analog synth, retro drum machine, driving bass, 110 bpm",
+      "tokenizer": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "YuE2TextConditioning",
+    "_meta": {
+      "title": "Style Conditioning"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text_conditioning": [
+        "6",
+        0
+      ],
+      "source_audio": [
+        "5",
+        0
+      ],
+      "melody_retention": 0.70,
+      "style_influence": 0.85
+    },
+    "class_type": "YuE2CoverConditioning",
+    "_meta": {
+      "title": "YuE2 Cover & Melody Conditioning"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "decoder": [
+        "4",
+        2
+      ]
+    },
+    "class_type": "YuE2AudioDecoder",
+    "_meta": {
+      "title": "Audio Decoder"
+    }
+  },
+  "12": {
+    "inputs": {
+      "filename_prefix": "yue2_cover_song",
+      "audio": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SaveAudio",
+    "_meta": {
+      "title": "Save Audio"
+    }
+  }
+}
