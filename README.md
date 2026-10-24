@@ -1,6 +1,8 @@
 # Music Studio Ver 0.1 — YuE2 Song Studio
 
-A local, Apple-Silicon-native song studio. Full install guide: [SETUP.md](SETUP.md). Lyrics are drafted with Qwen through Ollama;
+A local, Apple-Silicon-native song studio. Full install guide: [SETUP.md](SETUP.md).
+Feature deep-dives: [stems](docs/STEMS.md), [QA agents](docs/QA_AGENTS.md),
+[Voice Personas](docs/VOICE_PERSONAS.md). Lyrics are drafted with Qwen through Ollama;
 songs and covers are synthesized with **YuE2-3B through [mlx-Yue](https://github.com/vanch007/mlx-Yue)**
 on Metal. Nothing is sent to a cloud service.
 
@@ -23,18 +25,21 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
   samples, no CDN request), with copy/download of the ABC source.
 - **Library stems:** local 6-stem split with htdemucs_6s ONNX
   (Lead Vocal, Drums, Bass, Guitar, Piano/Keyboard, Synth/Other) plus individual
-  WAV download. Backing-vocal, kick/snare/hi-hat and acoustic/electric-guitar
-  sub-splits are not provided by this model.
+  48 kHz WAV players/downloads. Backing-vocal, kick/snare/hi-hat and
+  acoustic/electric-guitar sub-splits are not provided by this model — see
+  [docs/STEMS.md](docs/STEMS.md).
 - **Use as Inspiration:** reuse a Library song's style, tempo and instrumentation
-  to generate a brand-new melody and lyrics — no audio or melody is copied.
+  to generate a brand-new melody and lyrics — no audio or melody is copied. It
+  opens Text to Song with style/BPM prefilled and a new-lyrics prompt.
 - **Cover:** reference audio → SheetSage2 melody transcription → YuE2.
   Includes Max/Beast Mode (vocal consistency), Style Influence and Audio Influence
   sliders, 60 MB uploads, 6-minute covers, and production-tag cleanup so YuE2 sees
   clean `[Verse]` / `[Chorus]` section tags. A master limiter targets -1 dBFS true peak.
 - **Interactive score:** generated ABC is engraved as sheet music and can be played
   with a local piano soundfont. The raw ABC remains available for copying or export.
-- **No voice cloning.** YuE2 conditions on text style and an optional ABC score. It does not
-  accept a speaker embedding; covers preserve melody, not the original singer's timbre.
+- **No native voice cloning.** YuE2 conditions on text style and an optional ABC
+  score; it has no speaker embedding. A sample-based Voice Persona needs a separate
+  singing-voice-conversion stage (Seed-VC). See [docs/VOICE_PERSONAS.md](docs/VOICE_PERSONAS.md).
 - **One heavy job at a time.** The MLX engine runs alone with a 14 GB budget.
 
 ## Requirements
@@ -47,6 +52,8 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
   - `tools/ffmpeg/bin/{ffmpeg,ffprobe}`
 - MLX weights under `models/mlx-Yue2-3B/` and `models/YuE2-Vae/` (≈10.5 GB).
 - Engine checkout under `engines/mlx-Yue/` (pinned commit + `.venv`).
+- Stem model: `htdemucs_6s` ONNX (136 MB fp16), downloaded on first stem split.
+- Python packages include `demucs-onnx`, `onnxruntime`, `soundfile`, `soxr`.
 
 ## Quick start
 
@@ -95,6 +102,16 @@ export MLX_ENABLE_TF32=0
 # download the 8-bit + NAR + VAE files into ../../models/
 ```
 
+Install the app requirements after cloning (this includes `demucs-onnx` for
+Library stems):
+
+```bash
+cd Music_draft2
+uv venv --python 3.12 .venv
+uv pip install -r requirements.txt
+cd frontend && npm install && npm run build && cd ..
+```
+
 The MLX model repository is [vanch007/mlx-Yue2-3B](https://huggingface.co/vanch007/mlx-Yue2-3B).
 The conversion manifest validates **all** files, including `ar-bf16.safetensors`; download the
 complete repository (10.45 GB) or `verify_conversion` will reject the directory.
@@ -112,6 +129,8 @@ See `.env.example`. The important values:
 | `MLX_MAX_DURATION` | `360` | hard cap in seconds (6 min) |
 | `DEFAULT_OLLAMA_MODEL` | `qwen-fast:latest` | lyric drafting only |
 | `MAX_CONCURRENT_HEAVY_JOBS` | `1` | keep at 1 on 24 GB |
+| `MAX_UPLOAD_MB` | `60` | cover reference upload limit |
+| `DEMUCS_BIN` | `.venv/bin/demucs-onnx` | stem splitter executable |
 
 Before a job the backend unloads Ollama (`keep_alive=0`), then spawns `mlx-yue`.
 Do not run ComfyUI or another multi-GB model at the same time.
@@ -122,8 +141,10 @@ The previous ComfyUI adapter is retained only as a reference: completed ComfyUI 
 this machine took **45 min – 4 h 21 min**, and one job consumed 24 GB of swap. That path is
 not used by this app.
 
-The MLX path is the supported engine. The QA fixture (15 s, 8 NAR steps, `cot=off`) is the
-fast gate; full 60 s / 180 s renders are release tests. Do not run two heavy jobs.
+The MLX path is the supported engine. A 15 s fixture completes in roughly 30–40 s
+including planning and 8 NAR steps; cover renders add SheetSage2 transcription.
+Stem separation takes about 5.4 s for 15 s of audio on CPU. Do not run two heavy
+jobs (generation + stem split) at once.
 
 ## QA gate
 
@@ -134,6 +155,7 @@ fast gate; full 60 s / 180 s renders are release tests. Do not run two heavy job
 The sound-quality agent (`qa/audio_quality_agent.md`) runs FFmpeg loudness/peak/
 dynamic-range checks and a human listening checklist. `qa/integration_agent.md`
 covers Library stems, inspiration, and regressions. Neither replaces listening.
+See [docs/QA_AGENTS.md](docs/QA_AGENTS.md) for the three-agent split.
 
 The QA agent is independent: it runs checks and writes evidence, but does not edit source.
 The deterministic gate passes only at **score ≥ 8.00 / 10 with zero hard blockers**. A score of
@@ -153,6 +175,10 @@ Artifacts: `qa/reports/evidence.json`, `qa/reports/latest.json`, `qa/reports/lat
 | `GET /api/songs/{id}/events` | SSE stage/progress |
 | `GET /api/outputs/{id}/audio.flac` | master audio |
 | `GET /api/audio/download/{id}?format=mp3` | transcode |
+| `GET /api/songs/{id}/abc` | generated ABC score |
+| `POST /api/jobs/{id}/stems` | start 6-stem separation |
+| `GET /api/jobs/{id}/stems` | stem status + metadata |
+| `GET /api/jobs/{id}/stems/{stem}` | one stem WAV |
 | `GET /api/capabilities` | live engine/Ollama state |
 | `GET /api/status` | system doctor |
 
@@ -203,6 +229,18 @@ Only one heavy job may run at a time. Quit ComfyUI and other multi-GB model apps
 A reboot clears swap left behind by earlier ComfyUI sessions (the MLX engine itself
 uses no swap when it has ~14 GB of headroom).
 
+## Library and Inspiration
+
+Open **Library**, expand a completed render, and use:
+
+- **Split Stems** — six local stems with players/downloads.
+- **Use as Inspiration** — prefill Text to Song with the source style, BPM and
+  instrumentation; new lyrics and a new melody are generated without copying the
+  reference audio or melody.
+
+A sample-based **Voice Persona** is not a YuE2 feature; see
+[docs/VOICE_PERSONAS.md](docs/VOICE_PERSONAS.md) for the Seed-VC plan.
+
 ## License
 
 YuE2 model weights are **CC BY-NC 4.0 with additional creator permission**. Personal creators
@@ -211,7 +249,7 @@ The mlx-Yue code is Apache-2.0. This application is a local UI and does not gran
 
 ## Non-goals
 
-- Voice cloning / timbre transfer.
+- Native voice cloning / sample-based Voice Personas in v0.1 (a Seed-VC phase is documented in `docs/VOICE_PERSONAS.md`).
 - Public hosting / multi-user accounts.
 - Cloud generation.
 - Running YuE2 and a large LLM simultaneously on 24 GB.

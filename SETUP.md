@@ -10,6 +10,8 @@ The app is local-only and binds to `127.0.0.1`.
 - ~12 GB free disk for models, plus room for outputs.
 - Python 3.12, Node 22, ffmpeg/ffprobe.
 - Ollama for lyric drafting (optional; generation works without it).
+- `demucs-onnx` (installed from `requirements.txt`) for Library stems; the
+  htdemucs_6s model downloads on first use (~136 MB).
 
 The repository itself is small. Model weights, the MLX engine checkout, virtual
 environments, outputs, uploads and logs are intentionally not committed.
@@ -30,7 +32,8 @@ default-workspace/
 │   └── mlx-Yue/                  # git clone + .venv
 ├── models/
 │   ├── mlx-Yue2-3B/              # AR/NAR weights
-│   └── YuE2-Vae/                 # 48 kHz decoder
+│   ├── YuE2-Vae/                 # 48 kHz decoder
+│   └── hf-cache/                 # stem model cache (first run)
 └── tools/
     ├── node/                     # Node 22
     └── ffmpeg/bin/               # ffmpeg + ffprobe
@@ -120,7 +123,7 @@ cp .env.example .env
 # Edit .env if your workspace path differs from the default.
 uv venv --python 3.12 .venv
 source .venv/bin/activate
-uv pip install -r requirements.txt
+uv pip install -r requirements.txt   # includes demucs-onnx for stems
 
 cd frontend
 npm install
@@ -182,14 +185,20 @@ npm run dev        # http://127.0.0.1:3000, proxies /api to :8000
      generation; this is the practical lyric-adherence lever, not a hard guarantee.
    - Voice timbre is not cloned.
 3. The Library keeps completed jobs and allows export to WAV/MP3/FLAC.
+
    **Split Stems** runs local `demucs-onnx` (`htdemucs_6s`, CPU) into Lead Vocal,
-   Drums, Bass, Guitar, Piano/Keyboard and Synth/Other. **Use as Inspiration**
-   prefills Text to Song with the song's style/tempo for a brand-new melody and
-   lyrics; it never reuses the reference audio or melody.
+   Drums, Bass, Guitar, Piano/Keyboard and Synth/Other. Each is a 48 kHz WAV with
+   player/download. The first split downloads the 136 MB model. Backing-vocal,
+   kick/snare/hat and acoustic/electric-guitar sub-splits are not provided by this
+   model; see [docs/STEMS.md](docs/STEMS.md).
+
+   **Use as Inspiration** prefills Text to Song with the song's style/tempo for a
+   brand-new melody and lyrics; it never reuses the reference audio or melody.
 4. Voice Personas/voice cloning are **not** a YuE2 feature. A real sample-based
-   persona needs a separate speech/singing voice-conversion model such as
+   persona needs a separate singing-voice-conversion model such as
    [Seed-VC](https://github.com/Plachtaa/seed-vc) (Mac M-series supported), used on
-   the vocal stem and remixed with the other stems. This is not part of v0.1.
+   the vocal stem and remixed with the other stems. This is not part of v0.1; see
+   [docs/VOICE_PERSONAS.md](docs/VOICE_PERSONAS.md).
 
 Only one heavy job runs at a time. Quit ComfyUI/other model apps before generating.
 
@@ -204,8 +213,9 @@ cd /path/to/default-workspace/Music_draft2
 ./qa/run_qa.sh --with-cover --with-resilience --with-audio-quality
 ```
 
-- Runs backend pytest, frontend build, Playwright, a real 15 s text render and a
-  real cover render.
+- Runs backend pytest, frontend build, Playwright, a real 15 s text render, a
+  real cover render, idle-disconnect recovery, ABC/interactive-score checks, and
+  the sound-quality analysis.
 - The release gate passes only at **score ≥ 8.00 / 10** with zero hard blockers.
 - **7.99 fails**: independent second evaluation → findings → recode → full retest
   → redeploy → rescore. Maximum 3 cycles, then `BLOCKED`.
@@ -229,6 +239,14 @@ together. A reboot clears swap left by earlier ComfyUI sessions.
 
 **Ollama offline** — lyric drafting is optional; generation still works. Start
 Ollama and `ollama pull qwen-fast` (or use an installed Qwen tag).
+
+**Stem split fails** — check `logs/backend.log`; verify
+`.venv/bin/demucs-onnx` exists and the first model download can write to
+`models/hf-cache`. CPU is intentional; CoreML was rejected by this ONNX graph.
+
+**Voice Persona** — not available in YuE2. See
+[docs/VOICE_PERSONAS.md](docs/VOICE_PERSONAS.md); do not promise voice cloning
+from the current UI.
 
 ## 10. License
 
