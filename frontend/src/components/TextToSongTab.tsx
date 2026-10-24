@@ -438,6 +438,8 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
 
   // Update style tags and decoder when presets list loads if initially empty
   useEffect(() => {
+    // An "Use as Inspiration" draft owns the style/tempo until the user edits it.
+    if (inspiration) return;
     if (presets.length > 0 && selectedPresetIds.length === 1 && selectedPresetIds[0] === 'pop') {
       const fused = fuseStyles(['pop'], presets);
       setCustomBpm(fused.blendedTempo);
@@ -446,7 +448,7 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
       setCfg(fused.blendedCfg);
       setDurationSeconds(fused.blendedDuration);
     }
-  }, [presets]);
+  }, [presets, inspiration]);
 
   // Lyric Style Guide Validation (Limit: 5000 characters maximum)
   const charCount = lyrics.length;

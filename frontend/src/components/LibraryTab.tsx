@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, Play, Pause, Trash2, Copy, RefreshCw, Calendar, Music, Sparkles, Layers, Wand2, Loader2, Download } from 'lucide-react';
 import { Job } from '../types';
 import { AudioWaveformPlayer } from './AudioWaveformPlayer';
@@ -23,6 +23,21 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
   const [expandedJobId, setExpandedJobId] = useState<string | null>(jobs[0]?.id || null);
   const [stemsByJob, setStemsByJob] = useState<Record<string, StemState>>({});
   const [stemBusy, setStemBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!expandedJobId) return;
+    let active = true;
+    fetchStems(expandedJobId)
+      .then((state) => {
+        if (active && state.status === 'completed') {
+          setStemsByJob((prev) => ({ ...prev, [expandedJobId]: state }));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [expandedJobId]);
 
   const handleStems = async (job: Job) => {
     setStemBusy(job.id);
