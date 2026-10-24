@@ -13,6 +13,7 @@ let tabs = [];
 let fileInput = 0;
 let loaded = false;
 let textFeatures = false;
+let interactiveScore = false;
 try {
   await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
   await page.getByText('Song Studio', { exact: true }).first().waitFor({ timeout: 10000 });
@@ -30,6 +31,19 @@ try {
   await page.getByText('Cover Studio', { exact: true }).first().click();
   await page.waitForTimeout(600);
   fileInput = await page.locator('input[type="file"]').count();
+  if (process.env.QA_COMPLETED_JOB) {
+    await page.evaluate((id) => {
+      localStorage.setItem('yue2_active_job', JSON.stringify({ id, title: 'QA Score', type: 'text_to_song' }));
+    }, process.env.QA_COMPLETED_JOB);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.getByText('Interactive ABC score').waitFor({ timeout: 15000 });
+    await page.locator('.abc-score svg').first().waitFor({ timeout: 20000 });
+    await page.locator('.abcjs-midi-start').first().waitFor({ timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(800);
+    interactiveScore =
+      (await page.locator('.abc-score svg').count()) > 0 &&
+      (await page.locator('.abcjs-midi-start').count()) > 0;
+  }
 } catch (error) {
   errors.push(String(error));
 } finally {
@@ -46,6 +60,7 @@ console.log(JSON.stringify({
   tabs,
   file_input: fileInput,
   text_features: textFeatures,
+  interactive_score: interactiveScore,
   console_errors: errors.length,
   errors: errors.slice(0, 5),
 }));

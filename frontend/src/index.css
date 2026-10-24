@@ -1,1 +1,13 @@
 @import "tailwindcss";
+
+
+/* abcjs notation sits on a light paper surface so the SVG remains legible. */
+.abc-score svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+.abc-score .abcjs-container {
+  overflow: visible;
+}

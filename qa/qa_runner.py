@@ -133,6 +133,7 @@ async def generate_fixture(client: httpx.AsyncClient, checks: Dict[str, Any], me
             break
     elapsed = time.time() - started
     metrics["generation_seconds"] = round(elapsed, 1)
+    metrics["text_job_id"] = job["id"]
     check(checks, "generation_completed", final.get("status") == "completed", f"status={final.get('status')} error={final.get('error_message')}")
     check(checks, "generation_under_limit", elapsed <= 600, f"{elapsed:.0f}s (limit 600s)", elapsed)
 
@@ -309,17 +310,24 @@ async def main() -> int:
         check(checks, "frontend_build", False, "skipped")
 
     if not args.skip_e2e:
-        e2e = run(["node", "qa/e2e.mjs"], ROOT, 180, {"PLAYWRIGHT_BROWSERS_PATH": str(QA_DIR / ".browsers")})
+        e2e = run(
+            ["node", "qa/e2e.mjs"], ROOT, 240,
+            {
+                "PLAYWRIGHT_BROWSERS_PATH": str(QA_DIR / ".browsers"),
+                "QA_COMPLETED_JOB": str(metrics.get("text_job_id", "")),
+            },
+        )
         try:
             ui = json.loads(e2e.stdout.strip().splitlines()[-1])
         except Exception:
             ui = {"ok": False, "error": (e2e.stdout + e2e.stderr)[-500:]}
         check(checks, "tabs_present", bool(ui.get("tabs")), str(ui.get("tabs")))
         check(checks, "text_features", ui.get("text_features") is True, str(ui.get("text_features")))
+        check(checks, "interactive_score", ui.get("interactive_score") is True, str(ui.get("interactive_score")))
         check(checks, "no_console_errors", ui.get("console_errors", 1) == 0, str(ui.get("console_errors")))
         check(checks, "screenshot", (REPORTS / "ui.png").exists(), str(REPORTS / "ui.png"))
     else:
-        for name in ("tabs_present", "text_features", "no_console_errors", "screenshot"):
+        for name in ("tabs_present", "text_features", "interactive_score", "no_console_errors", "screenshot"):
             check(checks, name, False, "skipped")
 
     readme = (ROOT / "README.md").read_text(encoding="utf-8", errors="replace") if (ROOT / "README.md").exists() else ""

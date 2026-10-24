@@ -18,7 +18,7 @@ CATEGORY_CHECKS = {
     "functional": ["health_ok", "engine_ready", "generation_completed", "sse_terminal", "cover_completed", "resilience_passed", "abc_score", "vocal_gender_fed"],
     "audio": ["audio_exists", "duration_min", "sample_rate_48k", "stereo", "non_silent", "cover_audio_valid"],
     "tests": ["pytest_pass", "frontend_build"],
-    "ux": ["page_loads", "tabs_present", "text_features", "no_console_errors", "screenshot"],
+    "ux": ["page_loads", "tabs_present", "text_features", "interactive_score", "no_console_errors", "screenshot"],
     "performance": ["generation_under_limit", "swap_delta_under_limit"],
     "security": ["traversal_blocked", "invalid_job_blocked"],
     "docs": ["readme_mlx", "license_notice", "local_only"],

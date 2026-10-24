@@ -19,8 +19,11 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
   Includes a lyrics/BPM auto-duration estimate (bars × 4 × 60 ÷ BPM, up to 6 min),
   a **Plan score / No score** toggle, a mutually exclusive **Vocal Gender**
   selector (fed directly to YuE2 as “male vocal” / “female vocal”), and a
-  readable/exportable ABC melody.
+  rendered, playable **Interactive ABC score** (abcjs + local FluidR3 piano
+  samples, no CDN request), with copy/download of the ABC source.
 - **Cover:** reference audio → SheetSage2 melody transcription → YuE2 melody mode.
+- **Interactive score:** generated ABC is engraved as sheet music and can be played
+  with a local piano soundfont. The raw ABC remains available for editing/export.
 - **No voice cloning.** YuE2 conditions on text style and an optional ABC score. It does not
   accept a speaker embedding; covers preserve melody, not the original singer's timbre.
 - **One heavy job at a time.** The MLX engine runs alone with a 14 GB budget.

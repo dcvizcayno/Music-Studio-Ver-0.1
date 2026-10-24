@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Preset } from '../types';
 import { AudioWaveformPlayer } from './AudioWaveformPlayer';
+import { AbcScorePlayer } from './AbcScorePlayer';
 import { estimateSongLength } from '../utils/songLength';
 
 interface TextToSongTabProps {
@@ -1219,7 +1220,10 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <FileMusic className="h-4 w-4 text-amber-400" />
-                    <h4 className="text-sm font-semibold text-neutral-200">ABC melody / score</h4>
+                    <div>
+                      <h4 className="text-sm font-semibold text-neutral-200">Interactive ABC score</h4>
+                      <p className="text-[10px] text-neutral-500">Rendered notation · piano playback · editable ABC source</p>
+                    </div>
                     {abcLoading && <span className="text-[10px] text-neutral-500">loading…</span>}
                   </div>
                   {abcScore && (
@@ -1250,9 +1254,17 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
                     Fast mode was used, so no symbolic plan was generated. Choose “Plan score (ABC)” to get an editable melody.
                   </p>
                 ) : abcScore ? (
-                  <pre className="max-h-72 overflow-auto rounded-lg border border-neutral-800 bg-neutral-950 p-3 text-[11px] leading-relaxed text-neutral-300 font-mono">
-                    {abcScore}
-                  </pre>
+                  <div className="space-y-2">
+                    <AbcScorePlayer abc={abcScore} />
+                    <details className="rounded-lg border border-neutral-800 bg-neutral-950">
+                      <summary className="cursor-pointer px-3 py-2 text-[11px] text-neutral-400">
+                        View / edit ABC source
+                      </summary>
+                      <pre className="max-h-72 overflow-auto border-t border-neutral-800 p-3 text-[11px] leading-relaxed text-neutral-300 font-mono">
+                        {abcScore}
+                      </pre>
+                    </details>
+                  </div>
                 ) : (
                   <p className="text-xs text-neutral-500">
                     {abcLoading ? 'Loading the ABC score…' : 'No ABC score was returned for this render.'}
