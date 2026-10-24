@@ -57,7 +57,7 @@ export const SystemStatusTab: React.FC<SystemStatusTabProps> = ({
               <h3 className="text-base font-semibold text-neutral-100">System Doctor & Health Diagnostics</h3>
             </div>
             <p className="text-xs text-neutral-400 mt-1">
-              Real-time checks evaluating Apple Silicon hardware, unified RAM, Ollama, ComfyUI, and workflow integrity.
+              Real-time checks evaluating Apple Silicon hardware, unified RAM, Ollama, the MLX engine, and audio tools.
             </p>
           </div>
 

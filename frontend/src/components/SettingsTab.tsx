@@ -1,224 +1,92 @@
-import React, { useState } from 'react';
-import { Sliders, CheckCircle2, XCircle, RefreshCw, Save, RotateCcw } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Sliders, RefreshCw, Cpu, HardDrive, ShieldCheck } from 'lucide-react';
+import { Capabilities } from '../types';
+import { fetchCapabilities } from '../services/api';
 
 export const SettingsTab: React.FC = () => {
-  const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
-  const [comfyUrl, setComfyUrl] = useState('http://127.0.0.1:8188');
-  const [comfyPath, setComfyPath] = useState('/Users/daniel/ComfyUI');
-  const [workflowsDir, setWorkflowsDir] = useState('./workflows');
-  const [outputsDir, setOutputsDir] = useState('./outputs');
-  const [minMemoryGb, setMinMemoryGb] = useState('4.0');
+  const [caps, setCaps] = useState<Capabilities | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // Connection Test States
-  const [ollamaTestResult, setOllamaTestResult] = useState<string | null>(null);
-  const [comfyTestResult, setComfyTestResult] = useState<string | null>(null);
-  const [isTestingOllama, setIsTestingOllama] = useState(false);
-  const [isTestingComfy, setIsTestingComfy] = useState(false);
-
-  // Editable Lyric Style Guide
-  const defaultGuideText = `You are a master lyricist and song producer. You write lyrics that feel human, evocative, and melodically natural.
-
-CRITICAL LYRIC STYLE GUIDE RULES:
-1. Story first: one emotional premise per song, and every line supports it.
-2. Each verse contains one memorable tactile image (physical object, sensory texture, concrete action).
-3. The chorus answers the title emotionally, not literally. The title sits naturally in the chorus.
-4. Simple words, deep ideas. Lines must sound naturally spoken or sung.
-5. Emotional arc: curiosity, hope, conflict, realization, acceptance.
-6. Show what it felt like. Do not tell listeners what to think.
-7. Write the emotional aftermath of events, not only the events.
-8. Avoid: forced rhymes, generic heartbreak, overwriting, preaching, explaining instead of showing, chasing trends.
-9. ABSOLUTE BANS:
-   - NEVER use em dashes (—). Use commas, periods, or clean line breaks.
-   - NEVER use the words: narrator, delve, tapestry, foster.
-10. Keep lyrics under 3000 characters. Run a self-check pass and rewrite any line that does not earn its place.`;
-
-  const [lyricGuideText, setLyricGuideText] = useState(defaultGuideText);
-  const [guideSaveNotice, setGuideSaveNotice] = useState(false);
-
-  const testOllamaConnection = async () => {
-    setIsTestingOllama(true);
-    setOllamaTestResult(null);
-    const start = performance.now();
+  const load = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const res = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
-      const elapsed = Math.round(performance.now() - start);
-      if (res.ok) {
-        setOllamaTestResult(`Connected successfully (${elapsed}ms latency)`);
-      } else {
-        setOllamaTestResult(`HTTP ${res.status}: ${res.statusText}`);
-      }
-    } catch (e: any) {
-      setOllamaTestResult(`Connection failed: ${e.message || 'Offline'}`);
+      setCaps(await fetchCapabilities());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setIsTestingOllama(false);
+      setLoading(false);
     }
   };
 
-  const testComfyConnection = async () => {
-    setIsTestingComfy(true);
-    setComfyTestResult(null);
-    const start = performance.now();
-    try {
-      const res = await fetch(`${comfyUrl}/object_info`, { signal: AbortSignal.timeout(3000) });
-      const elapsed = Math.round(performance.now() - start);
-      if (res.ok) {
-        setComfyTestResult(`Connected successfully (${elapsed}ms latency)`);
-      } else {
-        setComfyTestResult(`HTTP ${res.status}: ${res.statusText}`);
-      }
-    } catch (e: any) {
-      setComfyTestResult(`Connection failed: ${e.message || 'Offline'}`);
-    } finally {
-      setIsTestingComfy(false);
-    }
-  };
+  useEffect(() => {
+    load();
+  }, []);
 
-  const handleSaveGuide = () => {
-    setGuideSaveNotice(true);
-    setTimeout(() => setGuideSaveNotice(false), 3000);
-  };
-
-  const handleResetGuide = () => {
-    setLyricGuideText(defaultGuideText);
-  };
+  const rows = [
+    ['Engine', caps?.engine === 'mlx' ? 'mlx-Yue · MLX / Metal' : 'unknown'],
+    ['Model', caps?.detected_models?.[0] || 'YuE2-3B'],
+    ['Precision', '8-bit AR · bf16 NAR'],
+    ['NAR steps', '8 draft · 16 standard · 32 final'],
+    ['Memory budget', '14 GB (single heavy job)'],
+    ['Ollama', caps?.ollama_reachable ? 'reachable at 127.0.0.1:11434' : 'offline'],
+    ['Lyric model', caps?.default_ollama_model || 'qwen-fast:latest'],
+    ['Server', '127.0.0.1:8000 · local only'],
+  ];
 
   return (
-    <div className="space-y-8 max-w-4xl">
-      {/* Endpoints and Paths */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
-        <h3 className="text-base font-semibold text-neutral-100 mb-1">Endpoints & Storage Paths</h3>
-        <p className="text-xs text-neutral-400 mb-6">
-          Synchronized with your local <code>.env</code> file. No cloud or telemetry URLs.
-        </p>
-
-        <div className="space-y-4">
-          {/* Ollama URL & Test */}
-          <div>
-            <label className="block text-xs font-medium text-neutral-300 mb-1">Ollama Service URL</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={ollamaUrl}
-                onChange={(e) => setOllamaUrl(e.target.value)}
-                className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs font-mono text-neutral-100 focus:outline-none focus:border-amber-500"
-              />
-              <button
-                onClick={testOllamaConnection}
-                disabled={isTestingOllama}
-                className="px-3 py-2 text-xs font-medium text-neutral-200 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors shrink-0"
-              >
-                {isTestingOllama ? 'Testing...' : 'Test Connection'}
-              </button>
-            </div>
-            {ollamaTestResult && (
-              <span className={`block text-xs mt-1.5 font-mono ${ollamaTestResult.includes('success') ? 'text-emerald-400' : 'text-amber-400'}`}>
-                {ollamaTestResult}
-              </span>
-            )}
-          </div>
-
-          {/* ComfyUI URL & Test */}
-          <div>
-            <label className="block text-xs font-medium text-neutral-300 mb-1">ComfyUI Music Engine URL</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={comfyUrl}
-                onChange={(e) => setComfyUrl(e.target.value)}
-                className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs font-mono text-neutral-100 focus:outline-none focus:border-amber-500"
-              />
-              <button
-                onClick={testComfyConnection}
-                disabled={isTestingComfy}
-                className="px-3 py-2 text-xs font-medium text-neutral-200 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors shrink-0"
-              >
-                {isTestingComfy ? 'Testing...' : 'Test Connection'}
-              </button>
-            </div>
-            {comfyTestResult && (
-              <span className={`block text-xs mt-1.5 font-mono ${comfyTestResult.includes('success') ? 'text-emerald-400' : 'text-amber-400'}`}>
-                {comfyTestResult}
-              </span>
-            )}
-          </div>
-
-          {/* ComfyUI Path on Mac */}
-          <div>
-            <label className="block text-xs font-medium text-neutral-300 mb-1">ComfyUI Installation Path on Mac</label>
-            <input
-              type="text"
-              value={comfyPath}
-              onChange={(e) => setComfyPath(e.target.value)}
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs font-mono text-neutral-100 focus:outline-none focus:border-amber-500"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div className="space-y-6 max-w-4xl">
+      <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Sliders className="h-5 w-5 text-amber-400" />
             <div>
-              <label className="block text-xs font-medium text-neutral-300 mb-1">Workflows Directory</label>
-              <input
-                type="text"
-                value={workflowsDir}
-                onChange={(e) => setWorkflowsDir(e.target.value)}
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs font-mono text-neutral-100 focus:outline-none focus:border-amber-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-neutral-300 mb-1">Audio Outputs Directory</label>
-              <input
-                type="text"
-                value={outputsDir}
-                onChange={(e) => setOutputsDir(e.target.value)}
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs font-mono text-neutral-100 focus:outline-none focus:border-amber-500"
-              />
+              <h3 className="text-base font-semibold text-neutral-100">Studio configuration</h3>
+              <p className="mt-0.5 text-xs text-neutral-400">
+                Runtime is configured in <code className="text-neutral-300">.env</code>; restart the backend after changes.
+              </p>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Editable Lyric Style Guide */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
-        <div className="flex items-center justify-between gap-4 mb-2">
-          <div>
-            <h3 className="text-base font-semibold text-neutral-100">Editable Lyric Style Guide (System Prompt)</h3>
-            <p className="text-xs text-neutral-400 mt-0.5">
-              Defines the creative constitution used by Qwen when drafting verses, imagery, and emotional arcs.
-            </p>
-          </div>
-
           <button
-            onClick={handleResetGuide}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-400 hover:text-neutral-200 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors"
+            onClick={load}
+            disabled={loading}
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-800 disabled:opacity-50"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset to Default</span>
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
           </button>
         </div>
 
-        <textarea
-          value={lyricGuideText}
-          onChange={(e) => setLyricGuideText(e.target.value)}
-          rows={14}
-          className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-xs font-mono text-neutral-200 leading-relaxed focus:outline-none focus:border-amber-500 mb-4"
-        />
+        {error && (
+          <div className="mt-4 rounded-lg border border-red-900/60 bg-red-950/30 p-3 text-xs text-red-200">{error}</div>
+        )}
 
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-neutral-500">
-            Enforces strict anti-slop rules, memorable tactile images per verse, and no em dashes.
-          </span>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {rows.map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-3">
+              <div className="text-[11px] uppercase tracking-wide text-neutral-500">{label}</div>
+              <div className="mt-1 break-words font-mono text-xs text-neutral-200">{value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
 
-          <div className="flex items-center gap-2">
-            {guideSaveNotice && (
-              <span className="text-xs text-emerald-400 font-medium">Saved to Studio Settings!</span>
-            )}
-            <button
-              onClick={handleSaveGuide}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-neutral-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors shadow-sm"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span>Save Style Guide</span>
-            </button>
-          </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-4">
+          <Cpu className="mb-2 h-4 w-4 text-emerald-400" />
+          <div className="text-xs font-semibold text-neutral-200">Apple Silicon</div>
+          <p className="mt-1 text-[11px] text-neutral-500">MLX runs on the Metal GPU with unified memory.</p>
+        </div>
+        <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-4">
+          <HardDrive className="mb-2 h-4 w-4 text-emerald-400" />
+          <div className="text-xs font-semibold text-neutral-200">Local artifacts</div>
+          <p className="mt-1 text-[11px] text-neutral-500">Models, outputs, uploads and the SQLite database stay on this Mac.</p>
+        </div>
+        <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-4">
+          <ShieldCheck className="mb-2 h-4 w-4 text-emerald-400" />
+          <div className="text-xs font-semibold text-neutral-200">License</div>
+          <p className="mt-1 text-[11px] text-neutral-500">YuE2 weights are CC BY-NC 4.0; commercial use needs a license.</p>
         </div>
       </div>
     </div>

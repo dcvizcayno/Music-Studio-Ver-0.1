@@ -60,7 +60,7 @@ export const ModelSelectorBar: React.FC<ModelSelectorBarProps> = ({
           <div className="flex items-center gap-2.5">
             <div className="flex items-center gap-1.5 text-xs text-neutral-400 font-medium whitespace-nowrap">
               <Music2 className="w-4 h-4 text-emerald-400" />
-              <span>Music Engine (ComfyUI)</span>
+              <span>Music Engine (MLX)</span>
             </div>
             <div className="relative">
               <select
@@ -89,9 +89,9 @@ export const ModelSelectorBar: React.FC<ModelSelectorBarProps> = ({
             )}
             <span aria-hidden="true" className="text-neutral-700">·</span>
             {comfyOnline ? (
-              <span className="text-emerald-400 font-medium">ComfyUI: Ready (8188)</span>
+              <span className="text-emerald-400 font-medium">MLX: Ready</span>
             ) : (
-              <span className="text-neutral-500">ComfyUI: Offline</span>
+              <span className="text-neutral-500">MLX: Not ready</span>
             )}
           </div>
 
@@ -99,7 +99,7 @@ export const ModelSelectorBar: React.FC<ModelSelectorBarProps> = ({
             onClick={onRefresh}
             disabled={isRefreshing}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-300 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors disabled:opacity-50"
-            title="Scan live Ollama tags and ComfyUI /object_info"
+            title="Scan live Ollama tags and the MLX engine"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
@@ -112,8 +112,8 @@ export const ModelSelectorBar: React.FC<ModelSelectorBarProps> = ({
         <div className="max-w-7xl mx-auto mt-2.5 flex items-center gap-2 p-2.5 bg-amber-950/40 border border-amber-800/60 rounded-lg text-xs text-amber-200">
           <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
           <span>
-            <strong>Memory Warning:</strong> {selectedOllama} is larger than 14B parameters.
-            On Apple Silicon 24GB unified memory, Qwen models over 14B may cause GPU memory pressure during YuE2 music synthesis.
+            <strong>Memory Warning:</strong> {selectedOllama} is larger than 8B parameters.
+            On Apple Silicon 24GB unified memory, Qwen models over 8B may cause memory pressure during YuE2 music synthesis.
             The memory manager will force-unload the LLM before music generation.
           </span>
         </div>

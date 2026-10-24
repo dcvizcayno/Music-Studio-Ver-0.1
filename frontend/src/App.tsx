@@ -1,66 +1,61 @@
-import React, { useEffect, useState } from 'react';
-import { Capabilities, ComfyModel, Job, OllamaModel, Preset, SystemStatusData, VoiceProfile } from './types';
+import React, { useEffect, useRef, useState } from 'react';
+import { AlertTriangle, X } from 'lucide-react';
+import { Capabilities, ComfyModel, Job, OllamaModel, Preset, SystemStatusData } from './types';
 import {
+  cancelJob,
+  deleteJob,
+  encodePrompt,
   fetchCapabilities,
   fetchJobs,
   fetchOllamaModels,
   fetchPresets,
   fetchSystemStatus,
   fetchYueModels,
-  encodePrompt,
-  generateSong
+  generateCover,
+  generateSong,
 } from './services/api';
 import { TopBar, StudioTab } from './components/TopBar';
 import { ModelSelectorBar } from './components/ModelSelectorBar';
 import { ActiveGenerationBanner } from './components/ActiveGenerationBanner';
 import { TextToSongTab } from './components/TextToSongTab';
-import { VocalModelingTab } from './components/VocalModelingTab';
 import { CoverSongTab } from './components/CoverSongTab';
 import { LibraryTab } from './components/LibraryTab';
 import { SystemStatusTab } from './components/SystemStatusTab';
 import { SettingsTab } from './components/SettingsTab';
 
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<StudioTab>('text_to_song');
-
-  // Model & Capability States
   const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
   const [yueModels, setYueModels] = useState<ComfyModel[]>([]);
-  const [selectedOllama, setSelectedOllama] = useState<string>('qwen2.5:7b-instruct');
-  const [selectedYue, setSelectedYue] = useState<string>('yue2-1b-preview.safetensors');
+  const [selectedOllama, setSelectedOllama] = useState<string>('');
+  const [selectedYue, setSelectedYue] = useState<string>('YuE2-3B MLX 8-bit');
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [isRefreshingModels, setIsRefreshingModels] = useState(false);
 
-  // Generation & Pipeline States
   const [isDrafting, setIsDrafting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [currentProgress, setCurrentProgress] = useState(0);
-  const [currentStage, setCurrentStage] = useState('Initializing');
+  const [currentStage, setCurrentStage] = useState('Idle');
   const [completedAudioUrl, setCompletedAudioUrl] = useState<string | undefined>(undefined);
   const [lastGeneratedTitle, setLastGeneratedTitle] = useState<string | undefined>(undefined);
   const [lastJobSnapshot, setLastJobSnapshot] = useState<any>(null);
-
-  // Data Collections
   const [libraryJobs, setLibraryJobs] = useState<Job[]>([]);
-  const [voiceProfiles, setVoiceProfiles] = useState<VoiceProfile[]>([
-    {
-      id: 'voice-1',
-      name: 'Daniel Acoustic Reference',
-      description: 'Warm close-mic baritone vocal sample',
-      filename: 'daniel_reference.wav',
-      audio_url: '#',
-      duration_seconds: 15.0,
-      created_at: new Date().toISOString()
-    }
-  ]);
   const [systemStatus, setSystemStatus] = useState<SystemStatusData | null>(null);
   const [isScanningSystem, setIsScanningSystem] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const streamRef = useRef<EventSource | null>(null);
 
-  // Load initial environment data
   const loadStudioState = async () => {
     setIsRefreshingModels(true);
+    setLoadError(null);
     try {
       const [capsData, ollamaData, yueData, presetData, jobsData, statusData] = await Promise.all([
         fetchCapabilities(),
@@ -68,30 +63,19 @@ export default function App() {
         fetchYueModels(),
         fetchPresets(),
         fetchJobs(),
-        fetchSystemStatus()
+        fetchSystemStatus(),
       ]);
-
       setCapabilities(capsData);
       setOllamaModels(ollamaData.models);
       setYueModels(yueData.models);
       setPresets(presetData);
       setLibraryJobs(jobsData);
       setSystemStatus(statusData);
-
-      // Restore saved choices or defaults
-      const savedOllama = localStorage.getItem('yue2_selected_ollama');
-      if (savedOllama && ollamaData.models.some((m) => m.name === savedOllama)) {
-        setSelectedOllama(savedOllama);
-      } else if (ollamaData.default_model) {
-        setSelectedOllama(ollamaData.default_model);
-      }
-
-      const savedYue = localStorage.getItem('yue2_selected_yue');
-      if (savedYue && yueData.models.some((m) => m.filename === savedYue)) {
-        setSelectedYue(savedYue);
-      } else if (yueData.default_model) {
-        setSelectedYue(yueData.default_model);
-      }
+      setSelectedOllama((current) => current || ollamaData.default_model || ollamaData.models[0]?.name || '');
+      setSelectedYue((current) => yueData.default_model || current || 'YuE2-3B MLX 8-bit');
+    } catch (err) {
+      setLoadError(errorText(err));
+      setCapabilities(null);
     } finally {
       setIsRefreshingModels(false);
     }
@@ -99,6 +83,7 @@ export default function App() {
 
   useEffect(() => {
     loadStudioState();
+    return () => streamRef.current?.close();
   }, []);
 
   const handleSelectOllama = (model: string) => {
@@ -111,7 +96,43 @@ export default function App() {
     localStorage.setItem('yue2_selected_yue', model);
   };
 
-  // Draft lyrics via Qwen
+  const startStream = (job: Job) => {
+    streamRef.current?.close();
+    const source = new EventSource(`/api/songs/${job.id}/events`);
+    streamRef.current = source;
+    source.onmessage = (event) => {
+      let data: any;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      if (typeof data.progress === 'number') setCurrentProgress(data.progress);
+      if (data.stage_name) setCurrentStage(data.stage_name);
+      if (data.status === 'completed') {
+        setCompletedAudioUrl(`${data.audio_url || `/api/outputs/${job.id}/audio.flac`}?t=${Date.now()}`);
+        setIsGenerating(false);
+        setActiveJob(null);
+        source.close();
+        setLibraryJobs((prev) => {
+          const completed = { ...job, status: 'completed' as const, progress: 100, stage_name: 'Complete' };
+          return [completed, ...prev.filter((item) => item.id !== job.id)];
+        });
+      } else if (data.status === 'failed' || data.status === 'cancelled') {
+        setError(data.error || data.stage_name || `Job ${data.status}`);
+        setIsGenerating(false);
+        setActiveJob(null);
+        source.close();
+      }
+    };
+    source.onerror = () => {
+      source.close();
+      setIsGenerating(false);
+      setActiveJob(null);
+      setError('Progress stream disconnected. Check the Library for the final job state.');
+    };
+  };
+
   const handleDraftLyrics = async (params: {
     idea: string;
     title?: string;
@@ -120,17 +141,17 @@ export default function App() {
     tempo?: string;
   }) => {
     setIsDrafting(true);
+    setError(null);
     try {
-      return await encodePrompt({
-        ...params,
-        qwen_model: selectedOllama
-      });
+      return await encodePrompt({ ...params, qwen_model: selectedOllama });
+    } catch (err) {
+      setError(errorText(err));
+      throw err;
     } finally {
       setIsDrafting(false);
     }
   };
 
-  // Generate Song Pipeline with live stage progression
   const handleGenerateSong = async (params: {
     title: string;
     idea?: string;
@@ -143,74 +164,70 @@ export default function App() {
     precision: string;
   }) => {
     setIsGenerating(true);
-    setCurrentProgress(5);
-    setCurrentStage('Memory Guard: Purging GPU & Preparing ComfyUI');
-
+    setError(null);
+    setCurrentProgress(2);
+    setCurrentStage('Submitting to mlx-Yue');
     try {
-      const job = await generateSong({
-        ...params,
-        model_name: selectedYue,
-        qwen_model: selectedOllama
-      });
-
+      const job = await generateSong({ ...params, qwen_model: selectedOllama });
       setActiveJob(job);
       setLastGeneratedTitle(params.title);
       setLastJobSnapshot({
         ...params,
-        model: selectedYue,
-        qwen_model: selectedOllama
+        model: 'YuE2-3B MLX 8-bit',
+        qwen_model: selectedOllama,
       });
-
-      // Simulation / SSE listener
-      // In local deployment, this connects to SSE /api/songs/{id}/events
-      const stages = [
-        { pct: 15, msg: 'Injecting parameters into YuE2 workflow graph' },
-        { pct: 30, msg: 'YuE2 Sampler: Diffusion steps 1-20' },
-        { pct: 55, msg: 'YuE2 Sampler: Diffusion steps 21-40' },
-        { pct: 80, msg: 'YuE2 Audio Decoder (Vocoder): Synthesizing full master' },
-        { pct: 95, msg: 'Saving master WAV to ./outputs/' },
-        { pct: 100, msg: 'Master audio ready' }
-      ];
-
-      for (const stage of stages) {
-        await new Promise((r) => setTimeout(r, 600));
-        setCurrentProgress(stage.pct);
-        setCurrentStage(stage.msg);
-      }
-
-      const audioUrl = `/api/outputs/${job.id}/audio.wav`;
-      setCompletedAudioUrl(audioUrl);
-
-      // Add to local library list
-      const completedJob: Job = {
-        ...job,
-        status: 'completed',
-        progress: 100,
-        stage_name: 'Complete',
-        audio_url: audioUrl
-      };
-      setLibraryJobs((prev) => [completedJob, ...prev]);
-    } catch (e) {
-      console.error('Generation failed:', e);
-    } finally {
+      startStream(job);
+    } catch (err) {
       setIsGenerating(false);
       setActiveJob(null);
+      setError(errorText(err));
     }
   };
 
-  const handleCancelJob = () => {
-    setIsGenerating(false);
-    setActiveJob(null);
-    setCurrentStage('Generation cancelled by user');
+  const handleGenerateCover = async (form: FormData) => {
+    setIsGenerating(true);
+    setError(null);
+    setCurrentProgress(2);
+    setCurrentStage('Uploading reference and transcribing melody');
+    try {
+      const job = await generateCover(form);
+      setActiveJob(job);
+      setLastGeneratedTitle(String(form.get('title') || 'Cover'));
+      setLastJobSnapshot({ title: form.get('title'), type: 'cover' });
+      startStream(job);
+    } catch (err) {
+      setIsGenerating(false);
+      setActiveJob(null);
+      setError(errorText(err));
+    }
+  };
+
+  const handleCancelJob = async () => {
+    if (!activeJob) return;
+    setIsCancelling(true);
+    try {
+      await cancelJob(activeJob.id);
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      streamRef.current?.close();
+      setIsGenerating(false);
+      setIsCancelling(false);
+      setActiveJob(null);
+      setCurrentStage('Cancelled by user');
+    }
   };
 
   const handleDeleteJob = async (id: string) => {
-    setLibraryJobs((prev) => prev.filter((j) => j.id !== id));
+    try {
+      await deleteJob(id);
+      setLibraryJobs((prev) => prev.filter((job) => job.id !== id));
+    } catch (err) {
+      setError(errorText(err));
+    }
   };
 
-  const handleDuplicateJob = (job: Job) => {
-    setActiveTab('text_to_song');
-  };
+  const handleDuplicateJob = (_job: Job) => setActiveTab('text_to_song');
 
   const handleRerunJob = (job: Job) => {
     handleGenerateSong({
@@ -219,82 +236,84 @@ export default function App() {
       lyrics: job.lyrics || '',
       style_tags: job.style_tags || '',
       seed: job.seed,
-      steps: job.steps || 50,
-      cfg: job.cfg || 3.0,
+      steps: job.steps || 8,
+      cfg: 1,
       duration_seconds: job.duration_seconds || 60,
-      precision: 'bf16'
+      precision: '8bit',
     });
   };
 
   const handleRescanSystem = async () => {
     setIsScanningSystem(true);
     try {
-      const data = await fetchSystemStatus();
-      setSystemStatus(data);
+      setSystemStatus(await fetchSystemStatus());
+    } catch (err) {
+      setError(errorText(err));
     } finally {
       setIsScanningSystem(false);
     }
   };
 
-  const handleUploadVoice = async (data: {
-    name: string;
-    description?: string;
-    rights_acknowledged: boolean;
-    file: File;
-  }) => {
-    const newProfile: VoiceProfile = {
-      id: 'voice-' + Math.random().toString(36).substring(2, 8),
-      name: data.name,
-      description: data.description,
-      filename: data.file.name,
-      audio_url: '#',
-      duration_seconds: 15.0,
-      created_at: new Date().toISOString()
-    };
-    setVoiceProfiles((prev) => [newProfile, ...prev]);
-  };
-
-  const handleDeleteVoice = async (id: string) => {
-    setVoiceProfiles((prev) => prev.filter((v) => v.id !== id));
-  };
-
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans">
-      {/* 3-Zone Top Navigation Bar */}
       <TopBar
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onQuickGenerate={() => setActiveTab('text_to_song')}
       />
 
-      {/* Model Selection & Hardware Interlock Bar */}
       <ModelSelectorBar
         ollamaModels={ollamaModels}
         yueModels={yueModels}
         selectedOllama={selectedOllama}
         selectedYue={selectedYue}
         ollamaOnline={capabilities?.ollama_reachable ?? false}
-        comfyOnline={capabilities?.comfyui_reachable ?? false}
+        comfyOnline={capabilities?.mlx_available ?? capabilities?.text_to_song_supported ?? false}
         onSelectOllama={handleSelectOllama}
         onSelectYue={handleSelectYue}
         onRefresh={loadStudioState}
         isRefreshing={isRefreshingModels}
       />
 
-      {/* Main Studio Viewport */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-6 py-8">
-        {/* Active Generation Progress Banner (if running) */}
+        {loadError && (
+          <div className="mb-6 flex items-start justify-between gap-4 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-sm text-red-200">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <div className="font-semibold">Backend unavailable</div>
+                <div className="mt-1 text-xs text-red-300/80">{loadError}</div>
+                <button onClick={loadStudioState} className="mt-2 text-xs font-medium underline">
+                  Retry
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-6 flex items-start justify-between gap-4 rounded-xl border border-amber-800/60 bg-amber-950/30 p-4 text-sm text-amber-100">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+              <span>{error}</span>
+            </div>
+            <button onClick={() => setError(null)} aria-label="Dismiss error">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         {isGenerating && (
           <div className="mb-8">
             <ActiveGenerationBanner
               stageName={currentStage}
               progress={currentProgress}
               onCancel={handleCancelJob}
+              isCancelling={isCancelling}
             />
           </div>
         )}
 
-        {/* Tab Views */}
         {activeTab === 'text_to_song' && (
           <TextToSongTab
             presets={presets}
@@ -308,30 +327,13 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'vocal_modeling' && capabilities && (
-          <VocalModelingTab
-            capabilities={capabilities}
-            voiceProfiles={voiceProfiles}
-            onUploadVoice={handleUploadVoice}
-            onDeleteVoice={handleDeleteVoice}
-          />
-        )}
-
         {activeTab === 'cover_studio' && capabilities && (
           <CoverSongTab
             capabilities={capabilities}
-            onGenerateCover={async (params) => {
-              await handleGenerateSong({
-                title: params.title,
-                lyrics: params.lyrics,
-                style_tags: params.style_tags,
-                steps: params.steps,
-                cfg: 3.2,
-                duration_seconds: params.duration_seconds,
-                precision: 'bf16'
-              });
-            }}
+            onGenerateCover={handleGenerateCover}
             isGenerating={isGenerating}
+            completedAudioUrl={completedAudioUrl}
+            lastGeneratedTitle={lastGeneratedTitle}
           />
         )}
 
@@ -355,14 +357,13 @@ export default function App() {
         {activeTab === 'settings' && <SettingsTab />}
       </main>
 
-      {/* Quiet Studio Footer (Single unboxed metadata line) */}
       <footer className="border-t border-neutral-900 py-6 px-6 text-center text-xs text-neutral-500">
         <div className="flex items-center justify-center gap-3">
           <span>YuE2 Song Studio</span>
           <span aria-hidden="true">·</span>
-          <span>Apple Silicon Sovereign Audio Engine</span>
+          <span>Apple Silicon · MLX · local only</span>
           <span aria-hidden="true">·</span>
-          <span>Qwen (Ollama) &amp; YuE2 (ComfyUI)</span>
+          <span>Qwen lyric drafting &amp; YuE2-3B synthesis</span>
         </div>
       </footer>
     </div>

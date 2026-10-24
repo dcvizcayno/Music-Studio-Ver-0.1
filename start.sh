@@ -1,60 +1,55 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# YuE2 Song Studio - Start Services
-# Starts FastAPI backend (port 8000) and React frontend (port 3000)
-# ==============================================================================
-
-set -uo pipefail
+# Start the local YuE2 Song Studio (FastAPI + built React UI).
+set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOG_DIR="${ROOT_DIR}/logs"
-mkdir -p "$LOG_DIR"
+cd "$ROOT_DIR"
+mkdir -p logs data outputs uploads
 
-BACKEND_PID_FILE="${LOG_DIR}/backend.pid"
-FRONTEND_PID_FILE="${LOG_DIR}/frontend.pid"
-BACKEND_LOG="${LOG_DIR}/backend.log"
-FRONTEND_LOG="${LOG_DIR}/frontend.log"
+PORT="${PORT:-8000}"
+PID_FILE="logs/backend.pid"
+LOG_FILE="logs/backend.log"
 
-# Check if already running
-if [[ -f "$BACKEND_PID_FILE" ]] && kill -0 "$(cat "$BACKEND_PID_FILE")" 2>/dev/null; then
-  echo "Backend is already running with PID $(cat "$BACKEND_PID_FILE")."
-else
-  echo "Starting FastAPI backend on http://127.0.0.1:8000..."
-  # Use .venv python if available
-  PY_EXEC="python3"
-  if [[ -f "${ROOT_DIR}/.venv/bin/python3" ]]; then
-    PY_EXEC="${ROOT_DIR}/.venv/bin/python3"
+if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+  echo "Backend already running (PID $(cat "$PID_FILE"))."
+  echo "Studio: http://127.0.0.1:${PORT}"
+  exit 0
+fi
+
+if [[ ! -x ".venv/bin/uvicorn" ]]; then
+  echo "Missing .venv. Run the install steps in README.md first." >&2
+  exit 1
+fi
+
+if [[ ! -f "frontend/dist/index.html" ]]; then
+  echo "Frontend build missing; building..."
+  export PATH="$ROOT_DIR/../tools/node/bin:$PATH"
+  (cd frontend && npm run build)
+fi
+
+if curl -s -m 2 "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
+  echo "Port ${PORT} is already serving the studio."
+  exit 0
+fi
+
+echo "Starting backend on http://127.0.0.1:${PORT} ..."
+(
+  cd backend
+  PYTHONPATH="$ROOT_DIR/backend" \
+    exec "$ROOT_DIR/.venv/bin/uvicorn" app.main:app \
+      --host 127.0.0.1 --port "$PORT"
+) >> "$LOG_FILE" 2>&1 &
+echo $! > "$PID_FILE"
+
+for _ in $(seq 1 40); do
+  if curl -s -m 2 "http://127.0.0.1:${PORT}/api/health" | grep -q '"status":"ok"'; then
+    echo "Studio ready: http://127.0.0.1:${PORT}"
+    echo "Logs: $LOG_FILE"
+    exit 0
   fi
+  sleep 0.5
+done
 
-  (
-    cd "${ROOT_DIR}/backend"
-    export PYTHONPATH="${ROOT_DIR}/backend"
-    $PY_EXEC -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > "$BACKEND_LOG" 2>&1
-  ) &
-  BACKEND_PID=$!
-  echo "$BACKEND_PID" > "$BACKEND_PID_FILE"
-  echo "Backend started (PID: $BACKEND_PID)"
-fi
-
-if [[ -f "$FRONTEND_PID_FILE" ]] && kill -0 "$(cat "$FRONTEND_PID_FILE")" 2>/dev/null; then
-  echo "Frontend is already running with PID $(cat "$FRONTEND_PID_FILE")."
-else
-  echo "Starting React frontend on http://localhost:3000..."
-  (
-    cd "$ROOT_DIR"
-    npm run dev > "$FRONTEND_LOG" 2>&1
-  ) &
-  FRONTEND_PID=$!
-  echo "$FRONTEND_PID" > "$FRONTEND_PID_FILE"
-  echo "Frontend started (PID: $FRONTEND_PID)"
-fi
-
-echo ""
-echo "========================================================================"
-echo "           YuE2 Song Studio is now running!                             "
-echo "========================================================================"
-echo "  Studio UI:       http://localhost:3000"
-echo "  Backend API:     http://127.0.0.1:8000/docs"
-echo "  System Doctor:   ./scripts/doctor.sh"
-echo "  Stop Studio:     ./stop.sh"
-echo "========================================================================"
+echo "Backend did not become healthy. Last log lines:" >&2
+tail -30 "$LOG_FILE" >&2 || true
+exit 1

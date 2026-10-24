@@ -83,7 +83,8 @@ def build_ffmpeg_args(
     channels: int = 2
 ) -> list:
     fmt = target_format.lower().strip()
-    cmd = ["ffmpeg", "-y", "-i", str(input_file), "-vn"]
+    from app.config import settings
+    cmd = [str(settings.ffmpeg_bin), "-y", "-i", str(input_file), "-vn"]
 
     # Channel configuration
     if channels in [1, 2]:

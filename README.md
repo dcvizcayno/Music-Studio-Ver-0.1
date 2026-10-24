@@ -1,169 +1,152 @@
 # YuE2 Song Studio
 
-A local, sovereign song studio designed specifically for **Apple Silicon Macs (M5 / M4 / M3 / M2 / M1 with 24GB Unified Memory)**. Draft expressive lyrics with **Qwen (via Ollama)** and synthesize full-length songs or covers with **YuE2 (via your existing ComfyUI install)** without sending any data to cloud services.
+A local, Apple-Silicon-native song studio. Lyrics are drafted with Qwen through Ollama;
+songs and covers are synthesized with **YuE2-3B through [mlx-Yue](https://github.com/vanch007/mlx-Yue)**
+on Metal. Nothing is sent to a cloud service.
 
----
+![stack](https://img.shields.io/badge/engine-MLX-black) ![ui](https://img.shields.io/badge/UI-React%2019-blue)
 
-## Architecture Overview
+## What actually runs
 
 ```
-                      ┌──────────────────────────────────────────┐
-                      │    React + Vite + TypeScript Frontend    │
-                      │         (Dark Studio Dashboard)          │
-                      └────────────────────┬─────────────────────┘
-                                           │ HTTP / SSE / WS
-                      ┌────────────────────▼─────────────────────┐
-                      │          Python FastAPI Backend          │
-                      │  (Pydantic v2, SQLite, Memory Guard)     │
-                      └─────────────┬─────────────────┬──────────┘
-                                    │                 │
-                1. Free ComfyUI GPU │                 │ 2. Free Ollama RAM
-                POST /free          │                 │ keep_alive=0
-                                    │                 │
-                      ┌─────────────▼──────┐   ┌──────▼──────────┐
-                      │    Local Ollama    │   │  Local ComfyUI  │
-                      │  (Qwen 7B-14B LLM) │   │  (YuE2 Engine)  │
-                      │   Lyrics & Tags    │   │ Full Music Gen  │
-                      └────────────────────┘   └─────────────────┘
+React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Metal / MLX
+                              │
+                              ├─ Ollama (Qwen) for lyrics only, unloaded before generation
+                              └─ ffmpeg for WAV / MP3 / FLAC export
 ```
 
-### Memory Management Strategy
-Apple Silicon's 24GB unified memory allocates up to ~16GB to the GPU. Running YuE2 diffusion models and large language models simultaneously can trigger memory pressure and swap thrashing.
-The backend enforces **Single-Heavy-Task Isolation**:
-- Prior to lyric drafting: calls ComfyUI `POST /free` (`unload_models=true`, `free_memory=true`) to evacuate GPU VRAM.
-- Prior to music synthesis: calls Ollama with `keep_alive=0` to release model weights from memory.
-- Enforces a strict local queue (max 1 heavy job at a time) and actively monitors unified memory headroom.
+- **Text-to-song:** style + lyrics → YuE2 plan → 48 kHz stereo audio.
+- **Cover:** reference audio → SheetSage2 melody transcription → YuE2 melody mode.
+- **No voice cloning.** YuE2 conditions on text style and an optional ABC score. It does not
+  accept a speaker embedding; covers preserve melody, not the original singer's timbre.
+- **One heavy job at a time.** The MLX engine runs alone with a 14 GB budget.
 
----
+## Requirements
 
-## Quick Start Commands
+- Apple Silicon Mac (M1–M5), 24 GB unified memory recommended.
+- macOS 14.2+ for M1–M4; **macOS 26.2+ for M5** (this machine: 26.7.1).
+- Python 3.12, Node 22, ffmpeg. This repo installs them under the workspace:
+  - `tools/python/cpython-3.12…`
+  - `tools/node/`
+  - `tools/ffmpeg/bin/{ffmpeg,ffprobe}`
+- MLX weights under `models/mlx-Yue2-3B/` and `models/YuE2-Vae/` (≈10.5 GB).
+- Engine checkout under `engines/mlx-Yue/` (pinned commit + `.venv`).
 
-### 1. Clone & Pre-flight Doctor Check
+## Quick start
+
 ```bash
-# Clone the repository
-git clone <your-private-repo-url> yue2-song-studio
-cd yue2-song-studio
-
-# Run the read-only diagnostic check
-./scripts/doctor.sh
-```
-
-### 2. Automated Setup
-The automated setup script is idempotent, never uses `sudo`, and backs up existing configs.
-```bash
-# Preview actions without making changes
-./scripts/setup.sh --dry-run
-
-# Run automated setup
-./scripts/setup.sh
-```
-
-### 3. Launching the Studio
-```bash
-# Start both FastAPI backend and React frontend
+cd Music_draft2
+cp .env.example .env
 ./start.sh
-
-# Open your browser at:
-# http://localhost:3000
+open http://127.0.0.1:8000
 ```
 
-### 4. Stopping the Studio
+`start.sh` starts the FastAPI server, serves the production frontend build, and leaves the
+MLX engine idle until a job is submitted. Logs are in `logs/`.
+
+For frontend development:
+
 ```bash
-./stop.sh
+cd frontend
+npm run dev          # http://127.0.0.1:3000, proxies /api to :8000
 ```
 
----
+## Install from scratch
 
-## Project Structure
+```bash
+# 1. Toolchain (workspace-local)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv python install 3.12
 
-```
-├── backend/                   # Python FastAPI Backend
-│   ├── app/
-│   │   ├── main.py            # FastAPI application entry & CORS
-│   │   ├── config.py          # Strict Pydantic settings (.env)
-│   │   ├── db.py              # SQLite aiosqlite database connection & migrations
-│   │   ├── routers/
-│   │   │   ├── capabilities.py# ComfyUI /object_info probe & capabilities
-│   │   │   ├── models.py      # Ollama & ComfyUI live model tags
-│   │   │   ├── prompt.py      # Qwen lyric encoder & style guide
-│   │   │   ├── songs.py       # Generation pipeline & progress streaming
-│   │   │   ├── voices.py      # Vocal reference profiles
-│   │   │   ├── library.py     # Past jobs, duplication, playback
-│   │   │   └── status.py      # System doctor checks API
-│   │   ├── services/
-│   │   │   ├── comfy_client.py# ComfyUI REST & WebSocket client
-│   │   │   ├── ollama_client.py# Ollama API client & memory unloader
-│   │   │   ├── memory_guard.py# Apple Silicon memory monitor & lock
-│   │   │   └── workflow_builder.py# Parameter injection into ComfyUI graphs
-│   │   ├── schemas/           # Pydantic v2 request/response contracts
-│   │   └── workers/           # Asynchronous job queue worker
-│   └── tests/                 # Pytest test suite
-├── frontend/                  # React + Vite + TypeScript UI
-│   ├── src/
-│   │   ├── components/        # Studio panels, waveform player, modal dialogs
-│   │   ├── hooks/             # SSE / WebSocket generation listeners
-│   │   └── types/             # TypeScript interfaces matching Pydantic schemas
-│   ├── package.json
-│   └── vite.config.ts
-├── workflows/                 # ComfyUI API-format JSON templates
-│   ├── text_to_song.json
-│   ├── text_to_song.mapping.json
-│   ├── cover.json
-│   ├── cover.mapping.json
-│   ├── voice_reference.json
-│   └── voice_reference.mapping.json
-├── config/                    # Default configurations & presets
-│   ├── capabilities.json      # Dynamic node capability map
-│   ├── default_settings.json  # Pop, Rock, Acoustic, Ballad, Hip-hop presets
-│   └── lyric_guide.json       # Editable Lyric Style Guide rules
-├── scripts/                   # Shell and Python automation
-│   ├── doctor.sh              # Read-only health check
-│   ├── setup.sh               # Idempotent system setup
-│   ├── teardown.sh            # Safe cleanup script
-│   └── setup_helpers.py       # ComfyUI detection & port tester
-├── data/                      # SQLite studio.db
-├── outputs/                   # Synthesized WAV/MP3 files by job ID
-├── voices/                    # User reference vocal samples
-├── logs/                      # Runtime server and setup logs
-├── start.sh                   # Process launcher with PID management
-├── stop.sh                    # Process terminator
-├── requirements.txt           # Python dependencies
-├── .env.example               # Template environment configuration
-└── .gitignore                 # Safe git ignore rules
+# Node 22
+curl -L https://nodejs.org/dist/v22.23.4/node-v22.23.4-darwin-arm64.tar.gz \
+  | tar -xz -C tools/node --strip-components=1
+
+# ffmpeg (static arm64)
+mkdir -p tools/ffmpeg/bin
+curl -L https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-arm64 \
+  -o tools/ffmpeg/bin/ffmpeg
+curl -L https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-darwin-arm64 \
+  -o tools/ffmpeg/bin/ffprobe
+chmod +x tools/ffmpeg/bin/*
+
+# 2. MLX engine
+git clone https://github.com/vanch007/mlx-Yue.git engines/mlx-Yue
+cd engines/mlx-Yue
+uv sync --frozen --no-dev --extra transcription
+source .venv/bin/activate
+export MLX_ENABLE_TF32=0
+# download the 8-bit + NAR + VAE files into ../../models/
 ```
 
----
+The MLX model repository is [vanch007/mlx-Yue2-3B](https://huggingface.co/vanch007/mlx-Yue2-3B).
+The conversion manifest validates **all** files, including `ar-bf16.safetensors`; download the
+complete repository (10.45 GB) or `verify_conversion` will reject the directory.
 
-## Troubleshooting Guide
+## Configuration
 
-### 1. ComfyUI: "YuE2 custom node missing in /object_info"
-- Verify that your ComfyUI has custom YuE / YuE2 nodes installed:
-  ```bash
-  cd /path/to/ComfyUI/custom_nodes
-  ls -la
-  ```
-- If you use a custom node naming scheme, check `workflows/text_to_song.mapping.json` and adjust the node class names to match your install.
-- Always export your ComfyUI workflow using **"Save (API Format)"** (enabled via Settings -> "Enable Dev mode Options").
+See `.env.example`. The important values:
 
-### 2. Ollama: "Cannot reach Ollama at http://localhost:11434"
-- Ensure Ollama is running:
-  ```bash
-  ollama serve
-  ```
-- Check that a Qwen model is downloaded:
-  ```bash
-  ollama list
-  # Recommended for 24GB Unified Memory:
-  ollama pull qwen2.5:7b-instruct
-  ```
-  *(Note: Models larger than 14B are discouraged to avoid memory pressure during music generation).*
+| Variable | Default | Meaning |
+|---|---|---|
+| `MLX_PRECISION` | `8bit` | 8-bit AR; `bf16` is slower and larger |
+| `MLX_DEFAULT_STEPS` | `8` | NAR ODE steps for drafts |
+| `MLX_FINAL_STEPS` | `32` | NAR steps for final renders |
+| `MLX_MEMORY_BUDGET_GB` | `14` | engine guard; leaves room for macOS |
+| `MLX_MAX_DURATION` | `180` | hard cap in seconds |
+| `DEFAULT_OLLAMA_MODEL` | `qwen-fast:latest` | lyric drafting only |
+| `MAX_CONCURRENT_HEAVY_JOBS` | `1` | keep at 1 on 24 GB |
 
-### 3. Memory Pressure / Crash During Generation
-- Verify `AUTO_UNLOAD_MODELS=true` is set in your `.env`.
-- Check memory pressure in macOS Activity Monitor.
-- In `config/default_settings.json`, reduce `duration_seconds` (e.g. from 90s to 45s) or run with `precision: "bf16"` or quantized checkpoints.
+Before a job the backend unloads Ollama (`keep_alive=0`), then spawns `mlx-yue`.
+Do not run ComfyUI or another multi-GB model at the same time.
 
-### 4. Port Conflict
-If port `8000` or `3000` is already in use:
-- Adjust `PORT` and `FRONTEND_PORT` in `.env`.
-- Run `./scripts/doctor.sh` to see port availability.
+## Measured limits on a 24 GB M5 Air
+
+The previous ComfyUI adapter is retained only as a reference: completed ComfyUI prompts on
+this machine took **45 min – 4 h 21 min**, and one job consumed 24 GB of swap. That path is
+not used by this app.
+
+The MLX path is the supported engine. The QA fixture (15 s, 8 NAR steps, `cot=off`) is the
+fast gate; full 60 s / 180 s renders are release tests. Do not run two heavy jobs.
+
+## QA gate
+
+```bash
+./qa/run_qa.sh
+```
+
+The QA agent is independent: it runs checks and writes evidence, but does not edit source.
+The deterministic gate passes only at **score ≥ 8.00 / 10 with zero hard blockers**. A score of
+**7.99 fails**: a second independent evaluation runs, then the coding agent fixes findings,
+the full suite reruns, the app redeploys, and the new build is rescored. Maximum 3 cycles,
+then the release is reported **BLOCKED**. Thresholds are never lowered.
+
+Artifacts: `qa/reports/evidence.json`, `qa/reports/latest.json`, `qa/reports/latest.flac`,
+`qa/reports/ui.png`, and `qa/reports/findings.md` on failure.
+
+## API
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/songs/generate` | text-to-song job |
+| `POST /api/songs/cover` | multipart cover job |
+| `GET /api/songs/{id}/events` | SSE stage/progress |
+| `GET /api/outputs/{id}/audio.flac` | master audio |
+| `GET /api/audio/download/{id}?format=mp3` | transcode |
+| `GET /api/capabilities` | live engine/Ollama state |
+| `GET /api/status` | system doctor |
+
+The server binds to `127.0.0.1` only and has no authentication. Do not expose it.
+
+## License
+
+YuE2 model weights are **CC BY-NC 4.0 with additional creator permission**. Personal creators
+may use and monetize outputs; companies need a commercial license from the YuE2 authors.
+The mlx-Yue code is Apache-2.0. This application is a local UI and does not grant model rights.
+
+## Non-goals
+
+- Voice cloning / timbre transfer.
+- Public hosting / multi-user accounts.
+- Cloud generation.
+- Running YuE2 and a large LLM simultaneously on 24 GB.

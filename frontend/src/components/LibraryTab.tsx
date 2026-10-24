@@ -103,7 +103,7 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
                     <button
                       onClick={() => onRerunJob(job)}
                       className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-neutral-300 hover:text-white bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors"
-                      title="Re-run with same settings in ComfyUI"
+                      title="Re-run with the same settings"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span>Re-run</span>

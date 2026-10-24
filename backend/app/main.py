@@ -1,16 +1,15 @@
-"""
-YuE2 Song Studio - FastAPI Application Entry Point.
-Runs locally on macOS Apple Silicon, orchestrating Qwen (Ollama) and YuE2 (ComfyUI).
-"""
+"""FastAPI entry point for the local YuE2 Song Studio."""
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.db import init_db
+from app.db import init_db, mark_orphans_failed
 from app.routers import (
     audio,
     capabilities,
@@ -20,48 +19,39 @@ from app.routers import (
     settings as settings_router,
     songs,
     status,
-    voices,
 )
-from app.services.comfy_client import comfy_client
+from app.services.engine import engine
 from app.workers.job_queue import job_queue
 
-# Configure structured logging
 logging.basicConfig(
-    level=logging.INFO if not settings.debug else logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    level=logging.DEBUG if settings.debug else logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
-logger = logging.getLogger("studio_app")
+logger = logging.getLogger("studio")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application startup & shutdown events."""
-    logger.info("Initializing YuE2 Song Studio backend...")
-
-    # 1. Initialize SQLite Database & Migrations
+    for directory in (
+        settings.outputs_path,
+        settings.uploads_path,
+        settings.data_path,
+        settings.config_path,
+        Path(settings.logs_dir),
+    ):
+        Path(directory).mkdir(parents=True, exist_ok=True)
     await init_db()
-    logger.info(f"SQLite database initialized at {settings.database_url}")
-
-    # 2. Step 0 Capability Check: Probe ComfyUI /object_info
-    caps = await comfy_client.probe_capabilities()
-    logger.info(f"ComfyUI Capability Probe: {caps.get('status_summary')}")
-
-    # 3. Start Single-Heavy-Task Background Worker
-    job_queue.start_worker()
-
+    orphans = await mark_orphans_failed()
+    if orphans:
+        logger.warning("Marked %s interrupted jobs as failed", orphans)
+    await job_queue.start_worker()
+    available, detail = engine.availability()
+    logger.info("MLX engine: %s (%s)", available, detail)
     yield
+    await job_queue.stop_worker()
 
-    logger.info("Shutting down YuE2 Song Studio backend.")
 
-
-app = FastAPI(
-    title="YuE2 Song Studio API",
-    description="Local sovereign AI song production powered by Qwen and YuE2 for Apple Silicon Macs.",
-    version="1.0.0",
-    lifespan=lifespan
-)
-
-# Configure Cross-Origin Resource Sharing (CORS)
+app = FastAPI(title="YuE2 Song Studio", version="2.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -70,29 +60,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register API Routers
 app.include_router(capabilities.router)
 app.include_router(models.router)
 app.include_router(prompt.router)
 app.include_router(songs.router)
 app.include_router(audio.router)
-app.include_router(voices.router)
 app.include_router(library.router)
 app.include_router(status.router)
 app.include_router(settings_router.router)
 
 
-@app.get("/health")
-async def health_check():
-    """Liveness probe."""
-    return {"status": "ok", "app": "YuE2 Song Studio", "version": "1.0.0"}
+@app.get("/api/health")
+async def health():
+    available, detail = engine.availability()
+    return {
+        "status": "ok",
+        "app": "YuE2 Song Studio",
+        "engine": "mlx",
+        "engine_ready": available,
+        "detail": detail,
+    }
 
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "app.main:app",
-        host=settings.host,
-        port=settings.port,
-        reload=settings.debug
-    )
+_dist = Path(settings.frontend_dist)
+if _dist.exists():
+    app.mount("/", StaticFiles(directory=str(_dist), html=True), name="ui")
+else:
+    logger.warning("Frontend build not found at %s; API only", _dist)

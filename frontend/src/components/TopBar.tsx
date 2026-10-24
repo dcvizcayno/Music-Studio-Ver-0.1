@@ -1,7 +1,7 @@
 import React from 'react';
-import { Music, Disc3, Mic, Library, Activity, Settings } from 'lucide-react';
+import { Music, Disc3, Library, Activity, Settings } from 'lucide-react';
 
-export type StudioTab = 'text_to_song' | 'vocal_modeling' | 'cover_studio' | 'library' | 'system_status' | 'settings';
+export type StudioTab = 'text_to_song' | 'cover_studio' | 'library' | 'system_status' | 'settings';
 
 interface TopBarProps {
   activeTab: StudioTab;
@@ -38,15 +38,6 @@ export const TopBar: React.FC<TopBarProps> = ({
             }`}
           >
             Text to Song
-          </button>
-
-          <button
-            onClick={() => onTabChange('vocal_modeling')}
-            className={`whitespace-nowrap shrink-0 transition-colors hover:text-neutral-100 ${
-              activeTab === 'vocal_modeling' ? 'text-amber-400 font-semibold' : ''
-            }`}
-          >
-            Vocal Modeling
           </button>
 
           <button

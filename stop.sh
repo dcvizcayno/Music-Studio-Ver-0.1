@@ -1,40 +1,28 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# YuE2 Song Studio - Stop Services
-# Gracefully terminates backend and frontend processes.
-# ==============================================================================
-
+# Stop the local YuE2 Song Studio.
 set -uo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOG_DIR="${ROOT_DIR}/logs"
+PID_FILE="$ROOT_DIR/logs/backend.pid"
 
-BACKEND_PID_FILE="${LOG_DIR}/backend.pid"
-FRONTEND_PID_FILE="${LOG_DIR}/frontend.pid"
+if [[ ! -f "$PID_FILE" ]]; then
+  echo "No backend PID file."
+  exit 0
+fi
 
-stop_proc() {
-  local name="$1"
-  local pid_file="$2"
-
-  if [[ -f "$pid_file" ]]; then
-    local pid
-    pid="$(cat "$pid_file")"
-    if kill -0 "$pid" 2>/dev/null; then
-      echo "Stopping $name (PID $pid)..."
-      kill "$pid" 2>/dev/null || true
-      sleep 1
-      if kill -0 "$pid" 2>/dev/null; then
-        kill -9 "$pid" 2>/dev/null || true
-      fi
-      echo "✓ $name stopped."
-    else
-      echo "$name is not running."
-    fi
-    rm -f "$pid_file"
-  else
-    echo "No PID file found for $name."
+PID="$(cat "$PID_FILE")"
+if kill -0 "$PID" 2>/dev/null; then
+  echo "Stopping backend (PID $PID)..."
+  kill "$PID" 2>/dev/null || true
+  for _ in $(seq 1 20); do
+    kill -0 "$PID" 2>/dev/null || break
+    sleep 0.25
+  done
+  if kill -0 "$PID" 2>/dev/null; then
+    kill -9 "$PID" 2>/dev/null || true
   fi
-}
-
-stop_proc "FastAPI Backend" "$BACKEND_PID_FILE"
-stop_proc "React Frontend" "$FRONTEND_PID_FILE"
+  echo "Stopped."
+else
+  echo "Backend is not running."
+fi
+rm -f "$PID_FILE"

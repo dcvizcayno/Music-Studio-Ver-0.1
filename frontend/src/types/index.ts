@@ -18,6 +18,11 @@ export interface ComfyModel {
 export interface Capabilities {
   comfyui_reachable: boolean;
   ollama_reachable: boolean;
+  engine?: string;
+  mlx_available?: boolean;
+  mlx_detail?: string;
+  unified_memory_available_gb?: number;
+  default_ollama_model?: string;
   comfyui_version: string;
   text_to_song_supported: boolean;
   reference_audio_supported: boolean;
@@ -58,7 +63,7 @@ export interface Job {
   id: string;
   title: string;
   type: 'text_to_song' | 'cover' | 'voice_clone';
-  status: 'queued' | 'encoding_prompt' | 'freeing_memory' | 'submitting_comfyui' | 'generating' | 'fetching_audio' | 'completed' | 'failed' | 'cancelled';
+  status: 'queued' | 'preparing' | 'planning' | 'generating' | 'rendering' | 'completed' | 'failed' | 'cancelled';
   idea?: string;
   lyrics?: string;
   style_tags?: string;

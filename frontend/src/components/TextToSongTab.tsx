@@ -371,10 +371,10 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
 
   // Decoder / Sampler Settings (Initialized from default Modern Pop)
   const [seed, setSeed] = useState<number>(42891);
-  const [steps, setSteps] = useState<number>(initialFused.blendedSteps);
-  const [cfg, setCfg] = useState<number>(initialFused.blendedCfg);
+  const [steps, setSteps] = useState<number>(8);
+  const [cfg, setCfg] = useState<number>(1.0);
   const [durationSeconds, setDurationSeconds] = useState<number>(initialFused.blendedDuration);
-  const [precision, setPrecision] = useState<string>('bf16');
+  const [precision, setPrecision] = useState<string>('8bit');
 
   // Active Fused Style Calculation
   const currentFused = fuseStyles(selectedPresetIds, presets);
@@ -404,7 +404,7 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
       const fused = fuseStyles(['pop'], presets);
       setCustomBpm(fused.blendedTempo);
       setStyleTags(fused.combinedStyleTags);
-      setSteps(fused.blendedSteps);
+      setSteps(8);
       setCfg(fused.blendedCfg);
       setDurationSeconds(fused.blendedDuration);
     }
@@ -462,7 +462,7 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
     if (!isPromptLocked) {
       setStyleTags(fused.combinedStyleTags);
     }
-    setSteps(fused.blendedSteps);
+    setSteps(8);
     setCfg(fused.blendedCfg);
     setDurationSeconds(fused.blendedDuration);
   };
@@ -474,7 +474,7 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
     if (!isPromptLocked) {
       setStyleTags(fused.combinedStyleTags);
     }
-    setSteps(fused.blendedSteps);
+    setSteps(8);
     setCfg(fused.blendedCfg);
     setDurationSeconds(fused.blendedDuration);
   };
@@ -519,8 +519,8 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
       lyrics,
       style_tags: styleTags,
       seed,
-      steps,
-      cfg,
+      steps: steps >= 32 ? 32 : steps >= 16 ? 16 : 8,
+      cfg: 1.0,
       duration_seconds: durationSeconds,
       precision
     });
@@ -949,7 +949,7 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
               </span>
             </div>
             <p className="text-xs text-neutral-400 mb-5">
-              Parameters matched directly to ComfyUI YuE2Sampler execution graph, auto-blended from selected styles.
+              Parameters map directly to the mlx-Yue request (NAR steps, planning mode, duration).
             </p>
 
             <div className="space-y-4">
@@ -976,38 +976,38 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
               {/* Steps Slider */}
               <div>
                 <div className="flex items-center justify-between text-xs text-neutral-300 mb-1.5">
-                  <label className="font-medium">Inference Steps</label>
+                  <label className="font-medium">NAR Steps (quality / time)</label>
                   <span className="font-mono tabular-nums text-neutral-400">{steps} steps</span>
                 </div>
                 <input
                   type="range"
-                  min="20"
-                  max="100"
-                  step="5"
+                  min="8"
+                  max="32"
+                  step="8"
                   value={steps}
                   onChange={(e) => setSteps(parseInt(e.target.value))}
                   className="w-full accent-amber-500 bg-neutral-800 h-1.5 rounded-lg cursor-pointer"
                 />
                 <div className="flex justify-between text-[10px] text-neutral-500 mt-1 font-mono">
-                  <span>Fast (25)</span>
-                  <span>Blended Target ({currentFused.blendedSteps})</span>
-                  <span>Detailed (80)</span>
+                  <span>8 · draft</span>
+                  <span>16 · standard</span>
+                  <span>32 · final</span>
                 </div>
               </div>
 
               {/* CFG Scale */}
               <div>
                 <div className="flex items-center justify-between text-xs text-neutral-300 mb-1.5">
-                  <label className="font-medium">Guidance Scale (CFG)</label>
-                  <span className="font-mono tabular-nums text-neutral-400">{cfg.toFixed(1)}</span>
+                  <label className="font-medium">Guidance (MLX fixed 1.0)</label>
+                  <span className="font-mono tabular-nums text-neutral-400">1.0</span>
                 </div>
                 <input
                   type="range"
                   min="1.0"
-                  max="7.0"
-                  step="0.1"
-                  value={cfg}
-                  onChange={(e) => setCfg(parseFloat(e.target.value))}
+                  max="1.0"
+                  step="0.01"
+                  value={1.0}
+                  disabled
                   className="w-full accent-amber-500 bg-neutral-800 h-1.5 rounded-lg cursor-pointer"
                 />
               </div>
@@ -1037,9 +1037,8 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
                   onChange={(e) => setPrecision(e.target.value)}
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs font-mono text-neutral-100 focus:outline-none focus:border-amber-500 cursor-pointer"
                 >
-                  <option value="bf16">bf16 — Bfloat16 (Standard Apple Silicon MPS)</option>
-                  <option value="fp16">fp16 — Float16 (Half precision)</option>
-                  <option value="fp32">fp32 — Float32 (High memory)</option>
+                  <option value="8bit">8bit — MLX quantized AR (recommended)</option>
+                  <option value="bf16">bf16 — Full precision (slower, more memory)</option>
                 </select>
               </div>
             </div>
@@ -1051,7 +1050,7 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
                 <span>Memory Interlock Active</span>
               </div>
               <p>
-                Prior to generation, Qwen will be unloaded from Ollama to ensure the full ~16GB GPU memory pool is available to YuE2 in ComfyUI.
+                Prior to generation, Qwen is unloaded from Ollama and the MLX engine runs alone with a 14 GB memory budget.
               </p>
             </div>
 

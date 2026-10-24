@@ -13,10 +13,12 @@ class GenerateSongRequest(BaseModel):
     style_tags: str = Field(..., description="Genre, instruments, mood, tempo tags")
     model_name: Optional[str] = Field(None, description="YuE2 model checkpoint")
     seed: Optional[int] = Field(None, description="Random seed (auto-generated if omitted)")
-    steps: int = Field(50, ge=10, le=120)
-    cfg: float = Field(3.0, ge=1.0, le=10.0)
-    duration_seconds: int = Field(60, ge=15, le=240)
-    precision: str = Field("bf16", description="bf16, fp16, or fp32")
+    steps: int = Field(8, ge=1, le=64, description="NAR ODE steps: 8 draft, 16, 32 final")
+    cfg: float = Field(1.0, ge=0.0, le=10.0, description="Kept for UI compatibility; MLX uses cfg_scale=1.0")
+    duration_seconds: int = Field(60, ge=15, le=180, description="Maximum duration in seconds")
+    precision: str = Field("8bit", description="8bit or bf16")
+    qwen_model: Optional[str] = Field(None, description="Ollama model used for lyrics")
+    cot: str = Field("full", pattern="^(full|melody|off)$", description="YuE2 planning mode")
     voice_profile_id: Optional[str] = Field(None, description="Vocal reference profile ID")
 
 
@@ -29,8 +31,8 @@ class CoverSongRequest(BaseModel):
     style_tags: str = Field(..., description="Full style tags for ComfyUI conditioning")
     lyrics: str = Field(..., description="Lyrics (original or rewritten)")
     seed: Optional[int] = Field(None)
-    steps: int = Field(60, ge=10, le=120)
-    duration_seconds: int = Field(90, ge=15, le=240)
+    steps: int = Field(8, ge=1, le=64)
+    duration_seconds: int = Field(90, ge=15, le=180)
 
 
 class JobResponse(BaseModel):

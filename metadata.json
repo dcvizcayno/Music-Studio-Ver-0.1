@@ -1,6 +1,6 @@
 {
   "name": "YuE2 Song Studio",
-  "description": "Local Apple Silicon song studio web app powered by Qwen through Ollama for lyric drafting and YuE2 through ComfyUI for full music synthesis.",
+  "description": "Local Apple Silicon song studio: Qwen lyric drafting via Ollama and YuE2-3B synthesis via mlx-Yue on Metal.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

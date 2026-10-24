@@ -34,3 +34,8 @@ build/
 .vscode/
 .idea/
 .aistudio/
+qa/.browsers/
+qa/reports/
+uploads/
+frontend/dist/
+*.tsbuildinfo

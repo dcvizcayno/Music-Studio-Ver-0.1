@@ -51,7 +51,7 @@ export const ActiveGenerationBanner: React.FC<ActiveGenerationBannerProps> = ({
           <ShieldAlert className="w-3 h-3 text-amber-400" />
           <span>Single-heavy-task exclusivity locked (Memory Guard)</span>
         </span>
-        <span className="font-mono">ComfyUI /ws Stream</span>
+        <span className="font-mono">mlx-Yue progress stream</span>
       </div>
     </div>
   );

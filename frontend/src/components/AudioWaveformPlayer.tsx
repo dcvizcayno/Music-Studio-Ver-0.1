@@ -435,7 +435,7 @@ export const AudioWaveformPlayer: React.FC<AudioWaveformPlayerProps> = ({
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl max-w-lg w-full p-6 shadow-2xl">
             <h3 className="text-base font-semibold text-neutral-100 mb-2">Generation Settings & Workflow Snapshot</h3>
             <p className="text-xs text-neutral-400 mb-4">
-              Exact configuration used for synthesizing this audio artifact in ComfyUI.
+              Exact configuration used for synthesizing this audio artifact with mlx-Yue.
             </p>
             <pre className="bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-xs font-mono text-neutral-300 max-h-72 overflow-y-auto mb-4">
               {JSON.stringify(settingsSnapshot, null, 2)}
