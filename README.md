@@ -1,6 +1,6 @@
-# YuE2 Song Studio
+# Music Studio Ver 0.1 — YuE2 Song Studio
 
-A local, Apple-Silicon-native song studio. Lyrics are drafted with Qwen through Ollama;
+A local, Apple-Silicon-native song studio. Full install guide: [SETUP.md](SETUP.md). Lyrics are drafted with Qwen through Ollama;
 songs and covers are synthesized with **YuE2-3B through [mlx-Yue](https://github.com/vanch007/mlx-Yue)**
 on Metal. Nothing is sent to a cloud service.
 

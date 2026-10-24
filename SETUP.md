@@ -1,0 +1,212 @@
+# Setup — Music Studio Ver 0.1
+
+This is the exact setup used on the target MacBook Air M5 (24 GB, macOS 26.7.1).
+The app is local-only and binds to `127.0.0.1`.
+
+## 1. Requirements
+
+- Apple Silicon Mac (M1–M5), 24 GB unified memory recommended.
+- macOS 14.2+ for M1–M4; **macOS 26.2+ for M5**.
+- ~12 GB free disk for models, plus room for outputs.
+- Python 3.12, Node 22, ffmpeg/ffprobe.
+- Ollama for lyric drafting (optional; generation works without it).
+
+The repository itself is small. Model weights, the MLX engine checkout, virtual
+environments, outputs, uploads and logs are intentionally not committed.
+
+## 2. Directory layout
+
+Everything lives under one workspace root:
+
+```text
+default-workspace/
+├── Music_draft2/                 # this repo (app)
+│   ├── backend/                  # FastAPI
+│   ├── frontend/                 # React + Vite
+│   ├── qa/                       # QA agent + deterministic gate
+│   ├── start.sh / stop.sh
+│   └── .env
+├── engines/
+│   └── mlx-Yue/                  # git clone + .venv
+├── models/
+│   ├── mlx-Yue2-3B/              # AR/NAR weights
+│   └── YuE2-Vae/                 # 48 kHz decoder
+└── tools/
+    ├── node/                     # Node 22
+    └── ffmpeg/bin/               # ffmpeg + ffprobe
+```
+
+If you use different paths, update `.env` (see section 5).
+
+## 3. Toolchain
+
+```bash
+cd /path/to/default-workspace
+
+# uv + Python 3.12
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv python install 3.12
+
+# Node 22 (official arm64 tarball)
+mkdir -p tools/node
+curl -L https://nodejs.org/dist/v22.23.4/node-v22.23.4-darwin-arm64.tar.gz \
+  | tar -xz -C tools/node --strip-components=1
+
+# ffmpeg + ffprobe (static arm64)
+mkdir -p tools/ffmpeg/bin
+curl -L https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-arm64 \
+  -o tools/ffmpeg/bin/ffmpeg
+curl -L https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-darwin-arm64 \
+  -o tools/ffmpeg/bin/ffprobe
+chmod +x tools/ffmpeg/bin/*
+
+# Verify
+tools/node/bin/node -v       # v22.x
+tools/ffmpeg/bin/ffmpeg -version | head -1
+```
+
+## 4. MLX engine and weights
+
+```bash
+git clone https://github.com/vanch007/mlx-Yue.git engines/mlx-Yue
+cd engines/mlx-Yue
+git checkout c5b5a8190f78c74aa671a4caa19dae8b8e04b3d8
+uv sync --frozen --no-dev --extra transcription
+source .venv/bin/activate
+export MLX_ENABLE_TF32=0
+```
+
+Download the weights into `models/`. The conversion manifest validates **all**
+files, including `ar-bf16.safetensors`, so fetch the complete set:
+
+```bash
+cd /path/to/default-workspace
+mkdir -p models/mlx-Yue2-3B models/YuE2-Vae
+
+for f in config.json conversion.json qwen.tiktoken \
+         ar-8bit.safetensors ar-bf16.safetensors nar-bf16.safetensors \
+         LICENSE THIRD_PARTY_NOTICES.md \
+         licenses/SnakeBeta-NVIDIA-MIT.txt licenses/stable-audio-tools-MIT.txt; do
+  mkdir -p "models/mlx-Yue2-3B/$(dirname "$f")"
+  curl -L --retry 10 --retry-all-errors -C - \
+    "https://huggingface.co/vanch007/mlx-Yue2-3B/resolve/main/$f?download=true" \
+    -o "models/mlx-Yue2-3B/$f"
+done
+
+for f in config.json model.safetensors weights_manifest.json; do
+  curl -L --retry 10 --retry-all-errors -C - \
+    "https://huggingface.co/vanch007/mlx-Yue2-3B/resolve/main/vae/$f?download=true" \
+    -o "models/YuE2-Vae/$f"
+done
+```
+
+Expected sizes: AR 8-bit 2.66 GB, AR bf16 4.33 GB, NAR 2.93 GB, VAE 0.53 GB.
+
+Verify:
+```bash
+cd engines/mlx-Yue
+.venv/bin/python - <<'PY'
+from pathlib import Path
+from lyra.conversion import verify_conversion
+print(verify_conversion(Path('../../models/mlx-Yue2-3B'))['format'])
+PY
+```
+
+## 5. App environment
+
+```bash
+cd /path/to/default-workspace/Music_draft2
+cp .env.example .env
+# Edit .env if your workspace path differs from the default.
+uv venv --python 3.12 .venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
+
+cd frontend
+npm install
+npm run build
+```
+
+The important `.env` values:
+
+| Variable | Default |
+|---|---|
+| `MLX_YUE_BIN` | `.../engines/mlx-Yue/.venv/bin/mlx-yue` |
+| `MLX_MODEL_DIR` | `.../models/mlx-Yue2-3B` |
+| `MLX_VAE_DIR` | `.../models/YuE2-Vae` |
+| `MLX_PRECISION` | `8bit` |
+| `MLX_MEMORY_BUDGET_GB` | `14` |
+| `MLX_DEFAULT_STEPS` | `8` |
+| `MLX_FINAL_STEPS` | `32` |
+| `FFMPEG_BIN` | `.../tools/ffmpeg/bin/ffmpeg` |
+| `DEFAULT_OLLAMA_MODEL` | `qwen-fast:latest` |
+
+## 6. Run
+
+```bash
+cd /path/to/default-workspace/Music_draft2
+./start.sh
+# open http://127.0.0.1:8000
+./scripts/doctor.sh
+```
+
+`start.sh` detaches the backend with `nohup`/`disown`, so closing the terminal
+does not stop it. `./stop.sh` stops it.
+
+For frontend development only:
+
+```bash
+cd frontend
+npm run dev        # http://127.0.0.1:3000, proxies /api to :8000
+```
+
+## 7. Generate
+
+1. **Text to Song:** write/draft lyrics, choose a preset, set duration and NAR
+   steps (8 draft, 16 standard, 32 final), then Generate.
+2. **Cover Studio:** upload a reference audio file (WAV/MP3/FLAC, ≤50 MB),
+   choose the target style, confirm rights, and Generate. SheetSage2 transcribes
+   the melody; YuE2 renders a new arrangement. Voice timbre is not cloned.
+3. The Library keeps completed jobs and allows export to WAV/MP3/FLAC.
+
+Only one heavy job runs at a time. Quit ComfyUI/other model apps before generating.
+
+## 8. QA gate
+
+```bash
+cd /path/to/default-workspace/Music_draft2
+./qa/run_qa.sh --with-cover
+```
+
+- Runs backend pytest, frontend build, Playwright, a real 15 s text render and a
+  real cover render.
+- The release gate passes only at **score ≥ 8.00 / 10** with zero hard blockers.
+- **7.99 fails**: independent second evaluation → findings → recode → full retest
+  → redeploy → rescore. Maximum 3 cycles, then `BLOCKED`.
+- Reports: `qa/reports/latest.json`, `evidence.json`, `latest.flac`, `cover.flac`,
+  `ui.png`.
+
+## 9. Troubleshooting
+
+**“Failed to fetch” in Cover Studio** — the backend is not running:
+```bash
+./start.sh
+curl -s http://127.0.0.1:8000/api/health
+```
+Hard-refresh the browser once (`Cmd+Shift+R`) after restarting.
+
+**Engine not ready** — run `./scripts/doctor.sh` and check the model paths,
+`engines/mlx-Yue/.venv/bin/mlx-yue`, and `tools/ffmpeg/bin/`.
+
+**Slow generation / swap** — 24 GB is the minimum. Do not run ComfyUI and MLX
+together. A reboot clears swap left by earlier ComfyUI sessions.
+
+**Ollama offline** — lyric drafting is optional; generation still works. Start
+Ollama and `ollama pull qwen-fast` (or use an installed Qwen tag).
+
+## 10. License
+
+YuE2 model weights are **CC BY-NC 4.0 with additional creator permission**.
+Personal creators may use and monetize outputs; companies need a commercial
+license from the YuE2 authors. The mlx-Yue code is Apache-2.0. This app does not
+grant model rights.
