@@ -35,3 +35,4 @@ Replaced the simulated ComfyUI engine with a real local `mlx-Yue` engine on Appl
 - No `sudo` used.
 - ComfyUI was stopped; its models were not modified.
 - The app binds to `127.0.0.1` only.
+- Cover Studio "Failed to fetch" root cause: `start.sh` did not detach the backend, so it stopped when the launcher shell exited. Fixed with `nohup` + `disown`; log/PID paths are now absolute under the repo `logs/`.

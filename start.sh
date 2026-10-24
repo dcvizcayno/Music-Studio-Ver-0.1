@@ -7,8 +7,8 @@ cd "$ROOT_DIR"
 mkdir -p logs data outputs uploads
 
 PORT="${PORT:-8000}"
-PID_FILE="logs/backend.pid"
-LOG_FILE="logs/backend.log"
+PID_FILE="$ROOT_DIR/logs/backend.pid"
+LOG_FILE="$ROOT_DIR/logs/backend.log"
 
 if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
   echo "Backend already running (PID $(cat "$PID_FILE"))."
@@ -33,13 +33,14 @@ if curl -s -m 2 "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
 fi
 
 echo "Starting backend on http://127.0.0.1:${PORT} ..."
-(
-  cd backend
-  PYTHONPATH="$ROOT_DIR/backend" \
-    exec "$ROOT_DIR/.venv/bin/uvicorn" app.main:app \
-      --host 127.0.0.1 --port "$PORT"
-) >> "$LOG_FILE" 2>&1 &
-echo $! > "$PID_FILE"
+pushd backend >/dev/null
+PYTHONPATH="$ROOT_DIR/backend" \
+  nohup "$ROOT_DIR/.venv/bin/uvicorn" app.main:app \
+    --host 127.0.0.1 --port "$PORT" >> "$LOG_FILE" 2>&1 &
+BACKEND_PID=$!
+popd >/dev/null
+echo "$BACKEND_PID" > "$PID_FILE"
+disown "$BACKEND_PID" 2>/dev/null || true
 
 for _ in $(seq 1 40); do
   if curl -s -m 2 "http://127.0.0.1:${PORT}/api/health" | grep -q '"status":"ok"'; then

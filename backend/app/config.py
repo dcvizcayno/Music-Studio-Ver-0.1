@@ -90,6 +90,11 @@ class Settings(BaseSettings):
         return path if path.is_absolute() else REPO_ROOT / path
 
     @property
+    def logs_path(self) -> Path:
+        path = Path(self.logs_dir)
+        return path if path.is_absolute() else REPO_ROOT / path
+
+    @property
     def data_path(self) -> Path:
         path = Path(self.data_dir)
         return path if path.is_absolute() else REPO_ROOT / path

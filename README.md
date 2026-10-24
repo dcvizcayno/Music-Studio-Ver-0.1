@@ -138,6 +138,38 @@ Artifacts: `qa/reports/evidence.json`, `qa/reports/latest.json`, `qa/reports/lat
 
 The server binds to `127.0.0.1` only and has no authentication. Do not expose it.
 
+## Troubleshooting
+
+### Cover Studio says "Failed to fetch"
+
+The backend is not running. `Failed to fetch` is a browser network error, not an
+upload validation error. Start it and check health:
+
+```bash
+./start.sh
+curl -s http://127.0.0.1:8000/api/health
+```
+
+`start.sh` now launches uvicorn with `nohup` and detaches it, so closing the
+terminal does not stop the studio. If you previously ran an older build, run
+`./stop.sh` once and start again.
+
+### The page loads but the engine is not ready
+
+```bash
+./scripts/doctor.sh
+```
+
+Check that the MLX weights exist under `models/`, the binary is at
+`engines/mlx-Yue/.venv/bin/mlx-yue`, and `ffmpeg`/`ffprobe` are under
+`tools/ffmpeg/bin/`.
+
+### Generation is slow or the machine swaps
+
+Only one heavy job may run at a time. Quit ComfyUI and other multi-GB model apps.
+A reboot clears swap left behind by earlier ComfyUI sessions (the MLX engine itself
+uses no swap when it has ~14 GB of headroom).
+
 ## License
 
 YuE2 model weights are **CC BY-NC 4.0 with additional creator permission**. Personal creators

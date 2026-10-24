@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
         settings.uploads_path,
         settings.data_path,
         settings.config_path,
-        Path(settings.logs_dir),
+        settings.logs_path,
     ):
         Path(directory).mkdir(parents=True, exist_ok=True)
     await init_db()
