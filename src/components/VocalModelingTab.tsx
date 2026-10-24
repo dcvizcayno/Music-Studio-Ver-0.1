@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Mic, Upload, ShieldCheck, AlertCircle, Trash2, Play, Pause } from 'lucide-react';
 import { Capabilities, VoiceProfile } from '../types';
+import { synthesizeSongWavUrl } from '../services/audioEncoder';
 
 interface VocalModelingTabProps {
   capabilities: Capabilities;
@@ -29,6 +30,39 @@ export const VocalModelingTab: React.FC<VocalModelingTabProps> = ({
   const [trimRange, setTrimRange] = useState<number>(15);
   const [isUploading, setIsUploading] = useState(false);
   const [activePlayingId, setActivePlayingId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const togglePlayProfile = async (profile: VoiceProfile) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (activePlayingId === profile.id) {
+      audio.pause();
+      setActivePlayingId(null);
+      return;
+    }
+
+    const src =
+      profile.audio_url && profile.audio_url !== '#'
+        ? profile.audio_url
+        : synthesizeSongWavUrl({
+            title: profile.name,
+            styleTags: 'indie folk, acoustic ballad, 78 bpm',
+            durationSeconds: 15,
+            seed: 101
+          });
+
+    try {
+      audio.src = src;
+      audio.volume = 0.85;
+      audio.muted = false;
+      await audio.play();
+      setActivePlayingId(profile.id);
+    } catch (err) {
+      console.error('Voice profile playback error:', err);
+      setActivePlayingId(null);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -59,6 +93,11 @@ export const VocalModelingTab: React.FC<VocalModelingTabProps> = ({
 
   return (
     <div className="space-y-8 max-w-5xl">
+      <audio
+        ref={audioRef}
+        onEnded={() => setActivePlayingId(null)}
+        onPause={() => setActivePlayingId(null)}
+      />
       {/* Capability Notification Banner if Unsupported */}
       {!isSupported && (
         <div className="p-4 bg-amber-950/30 border border-amber-800/60 rounded-xl flex items-start gap-3">
@@ -211,8 +250,21 @@ export const VocalModelingTab: React.FC<VocalModelingTabProps> = ({
 
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
+                      type="button"
+                      onClick={() => togglePlayProfile(profile)}
+                      className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/20 hover:bg-amber-500 text-amber-400 hover:text-neutral-950 transition-colors cursor-pointer"
+                      title={activePlayingId === profile.id ? 'Pause Sample' : 'Play Sample'}
+                    >
+                      {activePlayingId === profile.id ? (
+                        <Pause className="w-3.5 h-3.5 fill-current" />
+                      ) : (
+                        <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => onDeleteVoice(profile.id)}
-                      className="p-1.5 text-neutral-500 hover:text-red-400 transition-colors"
+                      className="p-1.5 text-neutral-500 hover:text-red-400 transition-colors cursor-pointer"
                       title="Delete Profile"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

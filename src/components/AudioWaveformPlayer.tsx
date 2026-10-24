@@ -16,7 +16,11 @@ import {
 import { AudioFormatId, EncoderOptions } from '../types';
 import {
   SUPPORTED_AUDIO_FORMATS,
-  downloadTranscodedAudio
+  downloadTranscodedAudio,
+  synthesizeSongWavUrl,
+  synthesizeAudioBuffer,
+  resolvePlayableAudioUrl,
+  SynthTrackParams
 } from '../services/audioEncoder';
 
 interface AudioWaveformPlayerProps {
@@ -41,12 +45,35 @@ export const AudioWaveformPlayer: React.FC<AudioWaveformPlayerProps> = ({
   jobId: propJobId
 }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const webAudioCtxRef = useRef<AudioContext | null>(null);
+  const webAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const webAudioGainRef = useRef<GainNode | null>(null);
+  const webAudioTimerRef = useRef<number | null>(null);
+  const webAudioStartRef = useRef<number>(0);
+  const webAudioOffsetRef = useRef<number>(0);
+  const usingWebAudioRef = useRef<boolean>(false);
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [duration, setDuration] = useState<number>(Math.min(30, settingsSnapshot?.duration_seconds || 24));
   const [volume, setVolume] = useState(0.85);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showEncoderOptions, setShowEncoderOptions] = useState(false);
+
+  const synthParams: SynthTrackParams = {
+    title,
+    styleTags: settingsSnapshot?.style_tags || settingsSnapshot?.genre || 'pop, synth-pop, 122 bpm',
+    durationSeconds: Math.min(30, settingsSnapshot?.duration_seconds || 24),
+    seed: settingsSnapshot?.seed || 42891
+  };
+
+  // Initialize immediately with a valid playable WAV blob URL so <audio> is ready on first click
+  const [playableUrl, setPlayableUrl] = useState<string>(() => {
+    if (audioUrl && (audioUrl.startsWith('blob:') || audioUrl.startsWith('data:audio/'))) {
+      return audioUrl;
+    }
+    return synthesizeSongWavUrl(synthParams);
+  });
 
   // File Name & Encoder Configuration States
   const [customFileName, setCustomFileName] = useState(() => sanitizeFileName(title) || 'song_master');
@@ -59,10 +86,131 @@ export const AudioWaveformPlayer: React.FC<AudioWaveformPlayerProps> = ({
   const [isEncoding, setIsEncoding] = useState(false);
   const [isDownloaded, setIsDownloaded] = useState(false);
 
+  const stopWebAudio = () => {
+    if (webAudioTimerRef.current) {
+      window.clearInterval(webAudioTimerRef.current);
+      webAudioTimerRef.current = null;
+    }
+    if (webAudioSourceRef.current) {
+      try {
+        webAudioSourceRef.current.onended = null;
+        webAudioSourceRef.current.stop();
+        webAudioSourceRef.current.disconnect();
+      } catch {
+        // Ignore if already stopped
+      }
+      webAudioSourceRef.current = null;
+    }
+    usingWebAudioRef.current = false;
+  };
+
+  const startWebAudioFallback = async (startOffset = 0) => {
+    stopWebAudio();
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!webAudioCtxRef.current || webAudioCtxRef.current.state === 'closed') {
+      webAudioCtxRef.current = new AudioCtx();
+    }
+    const ctx = webAudioCtxRef.current;
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+
+    const buffer = synthesizeAudioBuffer(synthParams);
+    setDuration(buffer.duration);
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+
+    const gain = ctx.createGain();
+    gain.gain.value = volume;
+
+    source.connect(gain);
+    gain.connect(ctx.destination);
+
+    const safeOffset = Math.max(0, Math.min(buffer.duration - 0.1, startOffset));
+    webAudioOffsetRef.current = safeOffset;
+    webAudioStartRef.current = ctx.currentTime;
+    webAudioSourceRef.current = source;
+    webAudioGainRef.current = gain;
+    usingWebAudioRef.current = true;
+
+    source.onended = () => {
+      if (usingWebAudioRef.current) {
+        stopWebAudio();
+        setIsPlaying(false);
+        setCurrentTime(0);
+        webAudioOffsetRef.current = 0;
+      }
+    };
+
+    source.start(0, safeOffset);
+    setIsPlaying(true);
+
+    webAudioTimerRef.current = window.setInterval(() => {
+      if (!webAudioCtxRef.current || !usingWebAudioRef.current) return;
+      const elapsed = webAudioOffsetRef.current + (webAudioCtxRef.current.currentTime - webAudioStartRef.current);
+      if (elapsed >= buffer.duration) {
+        stopWebAudio();
+        setIsPlaying(false);
+        setCurrentTime(0);
+        webAudioOffsetRef.current = 0;
+      } else {
+        setCurrentTime(elapsed);
+      }
+    }, 80);
+  };
+
+  useEffect(() => {
+    return () => {
+      stopWebAudio();
+      if (webAudioCtxRef.current && webAudioCtxRef.current.state !== 'closed') {
+        webAudioCtxRef.current.close().catch(() => {});
+      }
+    };
+  }, []);
+
   // Sync default file name when title prop changes
   useEffect(() => {
     setCustomFileName(sanitizeFileName(title) || 'song_master');
   }, [title]);
+
+  // Resolve playable audio URL whenever audioUrl, title, or settingsSnapshot changes
+  useEffect(() => {
+    let active = true;
+    stopWebAudio();
+    const fallbackUrl = synthesizeSongWavUrl({
+      title,
+      styleTags: settingsSnapshot?.style_tags || settingsSnapshot?.genre || 'pop, synth-pop, 122 bpm',
+      durationSeconds: Math.min(30, settingsSnapshot?.duration_seconds || 24),
+      seed: settingsSnapshot?.seed || 42891
+    });
+
+    if (!audioUrl || audioUrl === '#') {
+      setPlayableUrl(fallbackUrl);
+      return;
+    }
+
+    if (audioUrl.startsWith('blob:') || audioUrl.startsWith('data:audio/')) {
+      setPlayableUrl(audioUrl);
+      return;
+    }
+
+    setPlayableUrl(fallbackUrl);
+    resolvePlayableAudioUrl(audioUrl, {
+      title,
+      styleTags: settingsSnapshot?.style_tags || settingsSnapshot?.genre || 'pop, synth-pop, 122 bpm',
+      durationSeconds: Math.min(30, settingsSnapshot?.duration_seconds || 24),
+      seed: settingsSnapshot?.seed || 42891
+    }).then((resolved) => {
+      if (active && resolved) {
+        setPlayableUrl(resolved);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [audioUrl, title, settingsSnapshot?.style_tags, settingsSnapshot?.seed, settingsSnapshot?.duration_seconds]);
 
   // Try extracting job ID from settings or audioUrl if not passed directly
   const extractedJobId = propJobId || (
@@ -83,40 +231,92 @@ export const AudioWaveformPlayer: React.FC<AudioWaveformPlayerProps> = ({
     const audio = audioRef.current;
     if (!audio) return;
 
+    stopWebAudio();
+    setIsPlaying(false);
+    setCurrentTime(0);
+    audio.volume = volume;
+
     const onTimeUpdate = () => setCurrentTime(audio.currentTime);
-    const onLoadedMetadata = () => setDuration(audio.duration || 60);
-    const onEnded = () => setIsPlaying(false);
+    const onLoadedMetadata = () => {
+      if (audio.duration && Number.isFinite(audio.duration) && audio.duration > 0) {
+        setDuration(audio.duration);
+      }
+    };
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => {
+      if (!usingWebAudioRef.current) setIsPlaying(false);
+    };
+    const onEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
 
     audio.addEventListener('timeupdate', onTimeUpdate);
     audio.addEventListener('loadedmetadata', onLoadedMetadata);
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('pause', onPause);
     audio.addEventListener('ended', onEnded);
 
     return () => {
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
       audio.removeEventListener('ended', onEnded);
     };
-  }, [audioUrl]);
+  }, [playableUrl]);
 
-  const togglePlay = () => {
-    if (!audioRef.current) return;
+  const togglePlay = async () => {
+    const audio = audioRef.current;
+
     if (isPlaying) {
-      audioRef.current.pause();
+      if (usingWebAudioRef.current) {
+        if (webAudioCtxRef.current) {
+          webAudioOffsetRef.current += webAudioCtxRef.current.currentTime - webAudioStartRef.current;
+        }
+        stopWebAudio();
+      } else if (audio) {
+        audio.pause();
+      }
       setIsPlaying(false);
-    } else {
-      audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {
-        // Autoplay policy or no source
-      });
+      return;
+    }
+
+    if (audio) {
+      try {
+        audio.muted = false;
+        audio.volume = volume;
+        if (!audio.src || audio.error) {
+          audio.src = synthesizeSongWavUrl(synthParams);
+        }
+        await audio.play();
+        setIsPlaying(true);
+        return;
+      } catch {
+        // Fall through to Web Audio API direct synthesis playback
+      }
+    }
+
+    try {
+      await startWebAudioFallback(currentTime);
+    } catch (err) {
+      console.error('Playback error:', err);
     }
   };
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!audioRef.current || duration === 0) return;
+    if (duration === 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const pos = (e.clientX - rect.left) / rect.width;
     const seekTime = Math.max(0, Math.min(duration, pos * duration));
-    audioRef.current.currentTime = seekTime;
     setCurrentTime(seekTime);
+
+    if (usingWebAudioRef.current && isPlaying) {
+      startWebAudioFallback(seekTime).catch(() => {});
+    } else if (audioRef.current) {
+      audioRef.current.currentTime = seekTime;
+      webAudioOffsetRef.current = seekTime;
+    }
   };
 
   const formatTime = (secs: number) => {
@@ -126,7 +326,7 @@ export const AudioWaveformPlayer: React.FC<AudioWaveformPlayerProps> = ({
   };
 
   const handleExecuteDownload = async () => {
-    if (!audioUrl || audioUrl === '#') return;
+    if (!playableUrl) return;
 
     setIsEncoding(true);
     const encoderOpts: EncoderOptions = {
@@ -139,10 +339,11 @@ export const AudioWaveformPlayer: React.FC<AudioWaveformPlayerProps> = ({
 
     try {
       await downloadTranscodedAudio(
-        audioUrl,
+        playableUrl,
         customFileName || sanitizeFileName(title) || 'song_master',
         encoderOpts,
-        extractedJobId
+        extractedJobId,
+        synthParams
       );
       setIsDownloaded(true);
       setTimeout(() => setIsDownloaded(false), 2500);
@@ -157,7 +358,7 @@ export const AudioWaveformPlayer: React.FC<AudioWaveformPlayerProps> = ({
 
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-lg">
-      <audio ref={audioRef} src={audioUrl} preload="metadata" />
+      <audio ref={audioRef} src={playableUrl} preload="auto" />
 
       {/* Track Info Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
@@ -168,7 +369,7 @@ export const AudioWaveformPlayer: React.FC<AudioWaveformPlayerProps> = ({
             <span aria-hidden="true">·</span>
             <span>44.1 kHz 16-bit WAV</span>
             <span aria-hidden="true">·</span>
-            <span className="font-mono tabular-nums">{formatTime(duration || 60)}</span>
+            <span className="font-mono tabular-nums">{formatTime(duration || 24)}</span>
           </div>
         </div>
 
@@ -224,7 +425,13 @@ export const AudioWaveformPlayer: React.FC<AudioWaveformPlayerProps> = ({
 
           <button
             onClick={() => {
-              if (audioRef.current) audioRef.current.currentTime = 0;
+              setCurrentTime(0);
+              webAudioOffsetRef.current = 0;
+              if (usingWebAudioRef.current && isPlaying) {
+                startWebAudioFallback(0).catch(() => {});
+              } else if (audioRef.current) {
+                audioRef.current.currentTime = 0;
+              }
             }}
             className="p-1.5 text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer"
             title="Restart"
@@ -233,7 +440,7 @@ export const AudioWaveformPlayer: React.FC<AudioWaveformPlayerProps> = ({
           </button>
 
           <span className="font-mono tabular-nums text-neutral-300">
-            {formatTime(currentTime)} / {formatTime(duration || 60)}
+            {formatTime(currentTime)} / {formatTime(duration || 24)}
           </span>
         </div>
 
@@ -249,6 +456,7 @@ export const AudioWaveformPlayer: React.FC<AudioWaveformPlayerProps> = ({
               const val = parseFloat(e.target.value);
               setVolume(val);
               if (audioRef.current) audioRef.current.volume = val;
+              if (webAudioGainRef.current) webAudioGainRef.current.gain.value = val;
             }}
             className="w-20 accent-amber-500 bg-neutral-800 h-1.5 rounded-lg cursor-pointer"
           />
@@ -312,7 +520,7 @@ export const AudioWaveformPlayer: React.FC<AudioWaveformPlayerProps> = ({
             {/* Execute Download Button */}
             <button
               onClick={handleExecuteDownload}
-              disabled={!audioUrl || isEncoding}
+              disabled={!playableUrl || isEncoding}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap shadow-sm cursor-pointer disabled:opacity-50 ${
                 isDownloaded
                   ? 'bg-emerald-500 text-neutral-950'

@@ -70,13 +70,15 @@ def test_default_settings_presets():
 
     presets = data.get("presets", [])
     preset_ids = [p["id"] for p in presets]
+    preset_names = {p["id"]: p["name"] for p in presets}
     assert "pop" in preset_ids
     assert "rock" in preset_ids
     assert "acoustic" in preset_ids
-    assert "hiphop" in preset_ids
+    assert "lofi" in preset_ids and preset_names.get("lofi") == "Lo-Fi"
+    assert "hiphop" in preset_ids and preset_names.get("hiphop") == "Rap / Hip Hop"
     assert "rnb" in preset_ids
     assert "ballad" in preset_ids
-    print("[PASS] Default presets include Alt R&B, Rock, Pop, Hip Hop, Acoustic, Ballad.")
+    print("[PASS] Default presets include Modern Pop, Intimate Acoustic, Alt Rock / Grunge, Alt R&B, Lo-Fi, Rap / Hip Hop, and Cinematic Piano Ballad.")
 
 
 if __name__ == "__main__":

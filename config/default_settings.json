@@ -51,16 +51,28 @@
       "duration_seconds": 85
     },
     {
-      "id": "hiphop",
-      "name": "Lo-Fi Hip Hop",
-      "genre": "lo-fi hip hop, neo-soul chillout",
-      "instruments": "vinyl crackle, dusty rhodes piano, mellow 808 sub, swing hi-hats",
-      "mood": "relaxed, reflective, nostalgic",
-      "vocal_type": "smooth spoken melodic flow, subtle pitch correction",
-      "tempo_bpm": 86,
+      "id": "lofi",
+      "name": "Lo-Fi",
+      "genre": "lo-fi, chillhop, dusty instrumental groove",
+      "instruments": "vinyl crackle, warm dusty rhodes piano, mellow boom-bap drums, soft sub bass",
+      "mood": "relaxed, reflective, nostalgic, late-night",
+      "vocal_type": "soft melodic lo-fi vocal, warm tape saturation",
+      "tempo_bpm": 82,
       "steps": 45,
       "cfg": 2.8,
       "duration_seconds": 60
+    },
+    {
+      "id": "hiphop",
+      "name": "Rap / Hip Hop",
+      "genre": "rap, hip hop, modern boom-bap, rhythmic",
+      "instruments": "punchy 808 bass, crisp snare, tight hi-hat rolls, dark atmospheric keys",
+      "mood": "confident, rhythmic, focused, nocturnal",
+      "vocal_type": "clear rhythmic rap flow, upfront vocal presence, doubled ad-libs",
+      "tempo_bpm": 94,
+      "steps": 50,
+      "cfg": 3.2,
+      "duration_seconds": 75
     },
     {
       "id": "ballad",

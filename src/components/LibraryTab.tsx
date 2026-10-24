@@ -125,9 +125,11 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
                     <AudioWaveformPlayer
                       audioUrl={job.audio_url}
                       title={job.title}
+                      jobId={job.id}
                       settingsSnapshot={{
                         model: job.model_name,
                         qwen_model: job.qwen_model,
+                        style_tags: job.style_tags,
                         seed: job.seed,
                         steps: job.steps,
                         cfg: job.cfg,

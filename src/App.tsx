@@ -19,6 +19,10 @@ import { CoverSongTab } from './components/CoverSongTab';
 import { LibraryTab } from './components/LibraryTab';
 import { SystemStatusTab } from './components/SystemStatusTab';
 import { SettingsTab } from './components/SettingsTab';
+import { resolvePlayableAudioUrl, synthesizeSongWavUrl } from './services/audioEncoder';
+
+const INITIAL_DEMO_STYLE_TAGS =
+  'pop, synth-pop, upbeat, punchy kick, sub bass, bright synth chords, crisp claps, euphoric, vibrant, danceable, clear modern female lead, doubled chorus, autotune sheen, 122 bpm';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<StudioTab>('text_to_song');
@@ -38,19 +42,41 @@ export default function App() {
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [currentStage, setCurrentStage] = useState('Initializing');
-  const [completedAudioUrl, setCompletedAudioUrl] = useState<string | undefined>(undefined);
-  const [lastGeneratedTitle, setLastGeneratedTitle] = useState<string | undefined>(undefined);
-  const [lastJobSnapshot, setLastJobSnapshot] = useState<any>(null);
+  const [completedAudioUrl, setCompletedAudioUrl] = useState<string | undefined>(() =>
+    synthesizeSongWavUrl({
+      title: 'Salt on the Sill',
+      styleTags: INITIAL_DEMO_STYLE_TAGS,
+      durationSeconds: 24,
+      seed: 42891
+    })
+  );
+  const [lastGeneratedTitle, setLastGeneratedTitle] = useState<string | undefined>('Salt on the Sill');
+  const [lastJobSnapshot, setLastJobSnapshot] = useState<any>({
+    title: 'Salt on the Sill',
+    style_tags: INITIAL_DEMO_STYLE_TAGS,
+    model: 'yue2-1b-preview.safetensors',
+    qwen_model: 'qwen2.5:7b-instruct',
+    seed: 42891,
+    steps: 50,
+    cfg: 3.2,
+    duration_seconds: 24,
+    precision: 'bf16'
+  });
 
   // Data Collections
   const [libraryJobs, setLibraryJobs] = useState<Job[]>([]);
-  const [voiceProfiles, setVoiceProfiles] = useState<VoiceProfile[]>([
+  const [voiceProfiles, setVoiceProfiles] = useState<VoiceProfile[]>(() => [
     {
       id: 'voice-1',
       name: 'Daniel Acoustic Reference',
       description: 'Warm close-mic baritone vocal sample',
       filename: 'daniel_reference.wav',
-      audio_url: '#',
+      audio_url: synthesizeSongWavUrl({
+        title: 'Daniel Acoustic Reference',
+        styleTags: 'indie folk, acoustic ballad, 78 bpm',
+        durationSeconds: 15,
+        seed: 101
+      }),
       duration_seconds: 15.0,
       created_at: new Date().toISOString()
     }
@@ -75,7 +101,40 @@ export default function App() {
       setOllamaModels(ollamaData.models);
       setYueModels(yueData.models);
       setPresets(presetData);
-      setLibraryJobs(jobsData);
+      if (jobsData.length > 0) {
+        setLibraryJobs(jobsData);
+      } else {
+        setLibraryJobs((prev) =>
+          prev.length > 0
+            ? prev
+            : [
+                {
+                  id: 'job-demo-initial',
+                  title: 'Salt on the Sill',
+                  type: 'text_to_song',
+                  status: 'completed',
+                  style_tags: INITIAL_DEMO_STYLE_TAGS,
+                  lyrics: `[intro]\nBright synth pulse rising underneath the glass\nFour on the floor waiting for the night to pass\n\n[verse 1]\nA cracked ceramic mug sits cold upon the sill\nThe kitchen clock counts seconds that the shadows cannot fill`,
+                  model_name: 'yue2-1b-preview.safetensors',
+                  qwen_model: 'qwen2.5:7b-instruct',
+                  seed: 42891,
+                  steps: 50,
+                  cfg: 3.2,
+                  duration_seconds: 24,
+                  progress: 100,
+                  stage_name: 'Complete',
+                  audio_url: synthesizeSongWavUrl({
+                    title: 'Salt on the Sill',
+                    styleTags: INITIAL_DEMO_STYLE_TAGS,
+                    durationSeconds: 24,
+                    seed: 42891
+                  }),
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }
+              ]
+        );
+      }
       setSystemStatus(statusData);
 
       // Restore saved choices or defaults
@@ -178,8 +237,15 @@ export default function App() {
         setCurrentStage(stage.msg);
       }
 
-      const audioUrl = `/api/outputs/${job.id}/audio.wav`;
-      setCompletedAudioUrl(audioUrl);
+      const candidateBackendUrl = `/api/outputs/${job.id}/audio.wav`;
+      const playableAudioUrl = await resolvePlayableAudioUrl(candidateBackendUrl, {
+        title: params.title,
+        styleTags: params.style_tags,
+        durationSeconds: Math.min(30, params.duration_seconds || 24),
+        seed: params.seed || job.seed || 42891
+      });
+
+      setCompletedAudioUrl(playableAudioUrl);
 
       // Add to local library list
       const completedJob: Job = {
@@ -187,7 +253,7 @@ export default function App() {
         status: 'completed',
         progress: 100,
         stage_name: 'Complete',
-        audio_url: audioUrl
+        audio_url: playableAudioUrl
       };
       setLibraryJobs((prev) => [completedJob, ...prev]);
     } catch (e) {
@@ -242,12 +308,13 @@ export default function App() {
     rights_acknowledged: boolean;
     file: File;
   }) => {
+    const fileBlobUrl = URL.createObjectURL(data.file);
     const newProfile: VoiceProfile = {
       id: 'voice-' + Math.random().toString(36).substring(2, 8),
       name: data.name,
       description: data.description,
       filename: data.file.name,
-      audio_url: '#',
+      audio_url: fileBlobUrl,
       duration_seconds: 15.0,
       created_at: new Date().toISOString()
     };
@@ -332,6 +399,9 @@ export default function App() {
               });
             }}
             isGenerating={isGenerating}
+            completedAudioUrl={completedAudioUrl}
+            lastGeneratedTitle={lastGeneratedTitle}
+            lastJobSnapshot={lastJobSnapshot}
           />
         )}
 

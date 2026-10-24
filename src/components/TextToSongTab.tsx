@@ -125,13 +125,14 @@ export function getDefaultLyricsTemplate(selectedPresetIds: string[]): {
   markers: string[];
   lyrics: string;
 } {
-  const isHipHop = selectedPresetIds.includes('hiphop');
+  const isHipHopOrLoFi = selectedPresetIds.includes('hiphop') || selectedPresetIds.includes('lofi');
   const isRock = selectedPresetIds.includes('rock');
   const isPop = selectedPresetIds.includes('pop');
 
-  if (isHipHop) {
+  if (isHipHopOrLoFi) {
+    const isLoFiOnly = selectedPresetIds.includes('lofi') && !selectedPresetIds.includes('hiphop');
     return {
-      formatName: 'Rap / Hip Hop / Lo-Fi',
+      formatName: isLoFiOnly ? 'Lo-Fi' : 'Rap / Hip Hop / Lo-Fi',
       markers: ['[intro]', '[hook/chorus]', '[verse 1]', '[hook/chorus]', '[verse 2]', '[hook/chorus]', '[outro]'],
       lyrics: (
         "[intro]\n" +
@@ -488,7 +489,7 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
     });
   };
 
-  const handleApplyTemplate = (presetKey: 'pop' | 'rock' | 'acoustic' | 'hiphop') => {
+  const handleApplyTemplate = (presetKey: 'pop' | 'rock' | 'acoustic' | 'hiphop' | 'lofi') => {
     if (isPromptLocked) return;
     const tpl = getDefaultLyricsTemplate([presetKey]);
     setLyrics(tpl.lyrics);
@@ -877,12 +878,21 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
                   </button>
                   <button
                     type="button"
+                    onClick={() => handleApplyTemplate('lofi')}
+                    disabled={isPromptLocked}
+                    className="px-1.5 py-0.5 rounded bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 hover:text-amber-300 text-[10px] font-mono transition-colors disabled:opacity-50 cursor-pointer"
+                    title="Load Lo-Fi format (with [hook/chorus])"
+                  >
+                    Lo-Fi
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleApplyTemplate('hiphop')}
                     disabled={isPromptLocked}
                     className="px-1.5 py-0.5 rounded bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 hover:text-amber-300 text-[10px] font-mono transition-colors disabled:opacity-50 cursor-pointer"
-                    title="Load Rap / Hip Hop / Lo-Fi format (with [hook/chorus])"
+                    title="Load Rap / Hip Hop format (with [hook/chorus])"
                   >
-                    Rap / Lo-Fi
+                    Rap/Hip Hop
                   </button>
                 </div>
               </div>

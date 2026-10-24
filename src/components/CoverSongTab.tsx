@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Disc3, Upload, ShieldCheck, Sparkles, AlertCircle, Music } from 'lucide-react';
 import { Capabilities } from '../types';
+import { AudioWaveformPlayer } from './AudioWaveformPlayer';
 
 interface CoverSongTabProps {
   capabilities: Capabilities;
@@ -16,12 +17,18 @@ interface CoverSongTabProps {
     duration_seconds: number;
   }) => Promise<void>;
   isGenerating: boolean;
+  completedAudioUrl?: string;
+  lastGeneratedTitle?: string;
+  lastJobSnapshot?: any;
 }
 
 export const CoverSongTab: React.FC<CoverSongTabProps> = ({
   capabilities,
   onGenerateCover,
-  isGenerating
+  isGenerating,
+  completedAudioUrl,
+  lastGeneratedTitle,
+  lastJobSnapshot
 }) => {
   const isSupported = capabilities.cover_conditioning_supported;
 
@@ -198,6 +205,17 @@ export const CoverSongTab: React.FC<CoverSongTabProps> = ({
           </button>
         </form>
       </div>
+
+      {completedAudioUrl && (
+        <div>
+          <h4 className="text-sm font-semibold text-neutral-200 mb-2">Cover Studio Master Output</h4>
+          <AudioWaveformPlayer
+            audioUrl={completedAudioUrl}
+            title={lastGeneratedTitle || coverTitle}
+            settingsSnapshot={lastJobSnapshot}
+          />
+        </div>
+      )}
     </div>
   );
 };
