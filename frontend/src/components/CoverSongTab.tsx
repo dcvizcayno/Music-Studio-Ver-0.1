@@ -37,6 +37,10 @@ export const CoverSongTab: React.FC<CoverSongTabProps> = ({
       setLocalError('The MLX engine is not ready. Check System Status.');
       return;
     }
+    if (!title.trim()) {
+      setLocalError('Cover title is required.');
+      return;
+    }
     if (!file) {
       setLocalError('Choose a reference audio file.');
       return;
@@ -51,7 +55,7 @@ export const CoverSongTab: React.FC<CoverSongTabProps> = ({
     }
     const form = new FormData();
     form.append('audio_file', file);
-    form.append('title', title || file.name);
+    form.append('title', title.trim());
     form.append('style_tags', styleTags);
     form.append('lyrics', lyrics);
     form.append('rights_acknowledged', 'true');
@@ -108,20 +112,27 @@ export const CoverSongTab: React.FC<CoverSongTabProps> = ({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-xs text-neutral-300">
-            Cover title
+            Cover title <span className="text-amber-400">*</span>
             <input
+              required
               value={title}
               onChange={(event) => setTitle(event.target.value)}
+              placeholder="Required"
+              aria-required="true"
               className="mt-1 w-full rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-2 text-neutral-100 focus:border-amber-500 focus:outline-none"
             />
           </label>
           <label className="text-xs text-neutral-300">
-            Target style
-            <input
+            Target style <span className="text-neutral-500">(max 1000)</span>
+            <textarea
               value={styleTags}
               onChange={(event) => setStyleTags(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-2 text-neutral-100 focus:border-amber-500 focus:outline-none"
+              maxLength={1000}
+              rows={4}
+              placeholder="Genre, vocals, instruments, mood, tempo, production..."
+              className="mt-1 w-full resize-y rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-2 text-neutral-100 focus:border-amber-500 focus:outline-none"
             />
+            <span className="mt-1 block text-right font-mono text-[10px] text-neutral-500">{styleTags.length}/1000</span>
           </label>
         </div>
 
@@ -154,7 +165,7 @@ export const CoverSongTab: React.FC<CoverSongTabProps> = ({
             <input
               type="number"
               min={15}
-              max={300}
+              max={360}
               value={duration}
               onChange={(event) => setDuration(Number(event.target.value))}
               className="mt-1 w-full rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-2 text-neutral-100 focus:border-amber-500 focus:outline-none"

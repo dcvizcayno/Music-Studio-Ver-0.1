@@ -26,7 +26,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           }}
           className="text-lg font-bold tracking-tight text-neutral-100 whitespace-nowrap shrink-0 hover:text-amber-400 transition-colors"
         >
-          YuE2 Song Studio
+          Song Studio
         </a>
 
         {/* Zone 2: Navigation Links */}

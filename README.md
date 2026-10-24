@@ -93,7 +93,7 @@ See `.env.example`. The important values:
 | `MLX_DEFAULT_STEPS` | `8` | NAR ODE steps for drafts |
 | `MLX_FINAL_STEPS` | `32` | NAR steps for final renders |
 | `MLX_MEMORY_BUDGET_GB` | `14` | engine guard; leaves room for macOS |
-| `MLX_MAX_DURATION` | `180` | hard cap in seconds |
+| `MLX_MAX_DURATION` | `360` | hard cap in seconds (6 min) |
 | `DEFAULT_OLLAMA_MODEL` | `qwen-fast:latest` | lyric drafting only |
 | `MAX_CONCURRENT_HEAVY_JOBS` | `1` | keep at 1 on 24 GB |
 

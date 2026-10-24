@@ -237,7 +237,7 @@ async def main() -> int:
             check(checks, "ollama_reachable", bool(caps.get("ollama_reachable")), "Ollama tags")
 
             page = await client.get(f"{BASE}/")
-            check(checks, "page_loads", page.status_code == 200 and "YuE2 Song Studio" in page.text, f"HTTP {page.status_code}")
+            check(checks, "page_loads", page.status_code == 200 and "Song Studio" in page.text, f"HTTP {page.status_code}")
 
             bad = await client.get(f"{BASE}/api/jobs/not-a-uuid")
             check(checks, "invalid_job_blocked", bad.status_code == 404, f"HTTP {bad.status_code}")

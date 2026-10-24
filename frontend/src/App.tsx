@@ -359,7 +359,7 @@ export default function App() {
 
       <footer className="border-t border-neutral-900 py-6 px-6 text-center text-xs text-neutral-500">
         <div className="flex items-center justify-center gap-3">
-          <span>YuE2 Song Studio</span>
+          <span>Song Studio</span>
           <span aria-hidden="true">·</span>
           <span>Apple Silicon · MLX · local only</span>
           <span aria-hidden="true">·</span>

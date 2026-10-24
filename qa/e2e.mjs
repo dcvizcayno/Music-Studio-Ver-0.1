@@ -14,7 +14,7 @@ let fileInput = 0;
 let loaded = false;
 try {
   await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
-  await page.getByText('YuE2 Song Studio').first().waitFor({ timeout: 10000 });
+  await page.getByText('Song Studio', { exact: true }).first().waitFor({ timeout: 10000 });
   loaded = true;
   for (const label of ['Text to Song', 'Cover Studio', 'Library', 'System Status', 'Settings']) {
     const count = await page.getByText(label, { exact: true }).count();

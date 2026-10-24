@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     mlx_vae_dir: str = str(WORKSPACE_ROOT / "models/YuE2-Vae")
     mlx_precision: str = "8bit"
     mlx_memory_budget_gb: float = 14.0
-    mlx_max_duration: int = 180
+    mlx_max_duration: int = 360
     mlx_default_steps: int = 8
     mlx_final_steps: int = 32
     mlx_job_timeout_seconds: int = 2400

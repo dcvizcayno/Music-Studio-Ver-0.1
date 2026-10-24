@@ -87,12 +87,12 @@ async def generate_song(request: GenerateSongRequest):
 
 @router.post("/songs/cover")
 async def generate_cover(
-    title: str = Form("Cover"),
-    style_tags: str = Form(...),
+    title: str = Form(..., min_length=1, max_length=200),
+    style_tags: str = Form(..., max_length=1000),
     lyrics: str = Form(""),
     seed: Optional[int] = Form(None),
     steps: int = Form(8),
-    duration_seconds: int = Form(120),
+    duration_seconds: int = Form(120, ge=15, le=360),
     rights_acknowledged: bool = Form(False),
     audio_file: UploadFile = File(...),
 ):
@@ -101,6 +101,8 @@ async def generate_cover(
             status_code=400,
             detail="Confirm you own or have permission to use the reference recording",
         )
+    if not title.strip():
+        raise HTTPException(status_code=400, detail="Cover title cannot be empty")
     if not style_tags.strip():
         raise HTTPException(status_code=400, detail="Target style cannot be empty")
 
@@ -112,7 +114,7 @@ async def generate_cover(
     target = settings.uploads_path / upload_id / f"source{suffix}"
     await _save_upload(audio_file, target)
 
-    duration = max(15, min(300, duration_seconds))
+    duration = max(15, min(settings.mlx_max_duration, duration_seconds))
     steps = steps if steps in {8, 16, 32} else settings.mlx_default_steps
     job_data = {
         "title": title.strip() or "Cover",
