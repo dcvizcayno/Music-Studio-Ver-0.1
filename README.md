@@ -23,7 +23,7 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
   samples, no CDN request), with copy/download of the ABC source.
 - **Cover:** reference audio → SheetSage2 melody transcription → YuE2 melody mode.
 - **Interactive score:** generated ABC is engraved as sheet music and can be played
-  with a local piano soundfont. The raw ABC remains available for editing/export.
+  with a local piano soundfont. The raw ABC remains available for copying or export.
 - **No voice cloning.** YuE2 conditions on text style and an optional ABC score. It does not
   accept a speaker embedding; covers preserve melody, not the original singer's timbre.
 - **One heavy job at a time.** The MLX engine runs alone with a 14 GB budget.

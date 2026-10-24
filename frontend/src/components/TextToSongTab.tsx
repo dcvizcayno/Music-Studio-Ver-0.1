@@ -1222,7 +1222,7 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
                     <FileMusic className="h-4 w-4 text-amber-400" />
                     <div>
                       <h4 className="text-sm font-semibold text-neutral-200">Interactive ABC score</h4>
-                      <p className="text-[10px] text-neutral-500">Rendered notation · piano playback · editable ABC source</p>
+                      <p className="text-[10px] text-neutral-500">Rendered notation · piano playback · copy or download</p>
                     </div>
                     {abcLoading && <span className="text-[10px] text-neutral-500">loading…</span>}
                   </div>
@@ -1258,7 +1258,7 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
                     <AbcScorePlayer abc={abcScore} />
                     <details className="rounded-lg border border-neutral-800 bg-neutral-950">
                       <summary className="cursor-pointer px-3 py-2 text-[11px] text-neutral-400">
-                        View / edit ABC source
+                        View ABC source
                       </summary>
                       <pre className="max-h-72 overflow-auto border-t border-neutral-800 p-3 text-[11px] leading-relaxed text-neutral-300 font-mono">
                         {abcScore}
