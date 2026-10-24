@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     ffmpeg_bin: str = str(WORKSPACE_ROOT / "tools/ffmpeg/bin/ffmpeg")
     ffprobe_bin: str = str(WORKSPACE_ROOT / "tools/ffmpeg/bin/ffprobe")
     hf_home: str = str(WORKSPACE_ROOT / "models/hf-cache")
+    demucs_bin: str = str(REPO_ROOT / ".venv/bin/demucs-onnx")
 
     # Storage
     data_dir: str = "./data"

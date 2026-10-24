@@ -60,6 +60,7 @@ interface TextToSongTabProps {
   abcLoading?: boolean;
   abcUrl?: string;
   scoreRequested?: boolean;
+  inspiration?: { title: string; style_tags: string; bpm?: number } | null;
 }
 
 const BANNED_WORDS = ['narrator', 'delve', 'tapestry', 'foster'];
@@ -357,7 +358,8 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
   abcScore,
   abcLoading,
   abcUrl,
-  scoreRequested
+  scoreRequested,
+  inspiration
 }) => {
   // 1 to 3 Styles Checkbox Selection (Default: Modern Pop)
   const [selectedPresetIds, setSelectedPresetIds] = useState<string[]>(['pop']);
@@ -402,6 +404,15 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
   useEffect(() => {
     setScoreCopied(false);
   }, [abcScore]);
+
+  useEffect(() => {
+    if (!inspiration) return;
+    setSongTitle(`${inspiration.title} (Inspired)`);
+    setStyleTags(inspiration.style_tags.slice(0, 1000));
+    if (inspiration.bpm) setCustomBpm(Math.max(40, Math.min(240, inspiration.bpm)));
+    setIdea(`Create a brand-new song inspired by "${inspiration.title}". Keep the same mood, tempo and instrumentation, but write a new melody and new lyrics.`);
+    setLyrics(getDefaultLyricsTemplate(selectedPresetIds).lyrics);
+  }, [inspiration]);
 
   // Active Fused Style Calculation
   const currentFused = fuseStyles(selectedPresetIds, presets);
@@ -568,6 +579,12 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
 
   return (
     <div className="space-y-8">
+      {inspiration && (
+        <div className="rounded-xl border border-emerald-800/60 bg-emerald-950/30 p-3 text-xs text-emerald-200">
+          <strong>Inspired by “{inspiration.title}”.</strong> Style, tempo and instrumentation are reused;
+          melody and lyrics are new — no reference audio or melody is copied.
+        </div>
+      )}
       {/* Top Split: Prompt Encoder (Left) & Generation Decoder (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column (7 cols): Prompt Encoder & Lyrics */}

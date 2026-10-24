@@ -1,23 +1,58 @@
 import React, { useState } from 'react';
-import { Search, Play, Pause, Trash2, Copy, RefreshCw, Calendar, Music, Sparkles } from 'lucide-react';
+import { Search, Play, Pause, Trash2, Copy, RefreshCw, Calendar, Music, Sparkles, Layers, Wand2, Loader2, Download } from 'lucide-react';
 import { Job } from '../types';
 import { AudioWaveformPlayer } from './AudioWaveformPlayer';
+import { StemState, fetchStems, splitStems } from '../services/api';
 
 interface LibraryTabProps {
   jobs: Job[];
   onDeleteJob: (id: string) => Promise<void>;
   onDuplicateJob: (job: Job) => void;
   onRerunJob: (job: Job) => void;
+  onUseAsInspiration: (job: Job) => void;
 }
 
 export const LibraryTab: React.FC<LibraryTabProps> = ({
   jobs,
   onDeleteJob,
   onDuplicateJob,
-  onRerunJob
+  onRerunJob,
+  onUseAsInspiration
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedJobId, setExpandedJobId] = useState<string | null>(jobs[0]?.id || null);
+  const [stemsByJob, setStemsByJob] = useState<Record<string, StemState>>({});
+  const [stemBusy, setStemBusy] = useState<string | null>(null);
+
+  const handleStems = async (job: Job) => {
+    setStemBusy(job.id);
+    try {
+      let state = await fetchStems(job.id);
+      if (state.status !== 'completed') {
+        state = await splitStems(job.id);
+        setStemsByJob((prev) => ({ ...prev, [job.id]: state }));
+        for (let i = 0; i < 120; i += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 2500));
+          state = await fetchStems(job.id);
+          setStemsByJob((prev) => ({ ...prev, [job.id]: state }));
+          if (state.status === 'completed' || state.status === 'failed') break;
+        }
+      } else {
+        setStemsByJob((prev) => ({ ...prev, [job.id]: state }));
+      }
+    } catch (err) {
+      setStemsByJob((prev) => ({
+        ...prev,
+        [job.id]: {
+          status: 'failed',
+          stems: [],
+          error: err instanceof Error ? err.message : String(err),
+        },
+      }));
+    } finally {
+      setStemBusy(null);
+    }
+  };
 
   const filteredJobs = jobs.filter((j) => {
     const q = searchQuery.toLowerCase();
@@ -101,6 +136,25 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
                     </button>
 
                     <button
+                      onClick={() => onUseAsInspiration(job)}
+                      className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-emerald-200 hover:text-white bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-800/50 rounded-lg transition-colors"
+                      title="Create a brand-new track with the same mood, tempo and instrumentation — no audio or melody copied"
+                    >
+                      <Wand2 className="w-3.5 h-3.5" />
+                      <span>Use as Inspiration</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleStems(job)}
+                      disabled={stemBusy === job.id}
+                      className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-neutral-300 hover:text-white bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors disabled:opacity-50"
+                      title="Split into 6 stems (lead vocal, drums, bass, guitar, piano, synth/other)"
+                    >
+                      {stemBusy === job.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Layers className="w-3.5 h-3.5" />}
+                      <span>{stemsByJob[job.id]?.status === 'completed' ? 'View Stems' : 'Split Stems'}</span>
+                    </button>
+
+                    <button
                       onClick={() => onRerunJob(job)}
                       className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-neutral-300 hover:text-white bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors"
                       title="Re-run with the same settings"
@@ -142,6 +196,58 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
                         <pre className="text-xs font-mono text-neutral-300 whitespace-pre-wrap max-h-48 overflow-y-auto leading-relaxed">
                           {job.lyrics}
                         </pre>
+                      </div>
+                    )}
+
+                    {stemsByJob[job.id] && (
+                      <div className="bg-neutral-950 border border-neutral-800 rounded-lg p-3 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <span className="flex items-center gap-1.5 text-xs font-medium text-neutral-300">
+                              <Layers className="w-3.5 h-3.5 text-amber-400" />
+                              Stem Splitter
+                            </span>
+                            <p className="mt-0.5 text-[10px] text-neutral-500">
+                              6-stem ONNX separation (htdemucs_6s) · local CPU
+                            </p>
+                          </div>
+                          {stemsByJob[job.id].status === 'running' && (
+                            <span className="flex items-center gap-1.5 text-[11px] text-amber-300">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              {stemsByJob[job.id].stage || 'Separating…'}
+                            </span>
+                          )}
+                          {stemsByJob[job.id].status === 'failed' && (
+                            <span className="text-[11px] text-red-300">{stemsByJob[job.id].error || 'Failed'}</span>
+                          )}
+                        </div>
+
+                        {stemsByJob[job.id].status === 'completed' && (
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {stemsByJob[job.id].stems.map((stem) => (
+                              <div key={stem.id} className="rounded-lg border border-neutral-800 bg-neutral-900 p-2.5">
+                                <div className="mb-1 flex items-center justify-between gap-2">
+                                  <span className="text-[11px] font-medium text-neutral-200">{stem.label}</span>
+                                  <a
+                                    href={stem.file}
+                                    download={`${job.title.replace(/[^a-z0-9]+/gi, '_')}-${stem.id}.wav`}
+                                    className="text-neutral-500 hover:text-amber-300"
+                                    title="Download stem"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                  </a>
+                                </div>
+                                <audio controls preload="none" src={stem.file} className="h-8 w-full" />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="space-y-1">
+                          {(stemsByJob[job.id].notes || []).map((note) => (
+                            <p key={note} className="text-[10px] text-neutral-500">• {note}</p>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

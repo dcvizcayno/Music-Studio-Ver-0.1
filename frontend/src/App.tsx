@@ -48,6 +48,7 @@ export default function App() {
   const [completedAudioUrl, setCompletedAudioUrl] = useState<string | undefined>(undefined);
   const [lastGeneratedTitle, setLastGeneratedTitle] = useState<string | undefined>(undefined);
   const [lastJobSnapshot, setLastJobSnapshot] = useState<any>(null);
+  const [inspiration, setInspiration] = useState<{ title: string; style_tags: string; bpm?: number } | null>(null);
   const [lastJobId, setLastJobId] = useState<string | null>(null);
   const [scoreAbc, setScoreAbc] = useState<string | null>(null);
   const [scoreLoading, setScoreLoading] = useState(false);
@@ -432,6 +433,16 @@ export default function App() {
 
   const handleDuplicateJob = (_job: Job) => setActiveTab('text_to_song');
 
+  const handleUseAsInspiration = (job: Job) => {
+    const bpmMatch = (job.style_tags || '').match(/(\d{2,3})\s*bpm/i);
+    setInspiration({
+      title: job.title,
+      style_tags: job.style_tags || '',
+      bpm: bpmMatch ? Number(bpmMatch[1]) : undefined,
+    });
+    setActiveTab('text_to_song');
+  };
+
   const handleRerunJob = (job: Job) => {
     handleGenerateSong({
       title: `${job.title} (Re-run)`,
@@ -532,6 +543,7 @@ export default function App() {
             abcLoading={scoreLoading}
             abcUrl={lastJobId ? `/api/songs/${lastJobId}/abc` : undefined}
             scoreRequested={lastJobSnapshot?.cot !== 'off'}
+            inspiration={inspiration}
           />
         )}
 
@@ -551,6 +563,7 @@ export default function App() {
             onDeleteJob={handleDeleteJob}
             onDuplicateJob={handleDuplicateJob}
             onRerunJob={handleRerunJob}
+            onUseAsInspiration={handleUseAsInspiration}
           />
         )}
 

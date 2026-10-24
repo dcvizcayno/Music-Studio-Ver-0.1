@@ -138,3 +138,28 @@ export async function deleteJob(jobId: string): Promise<void> {
 export function downloadUrl(jobId: string, format: string): string {
   return `${API_BASE}/audio/download/${jobId}?format=${encodeURIComponent(format)}`;
 }
+
+
+export interface StemInfo {
+  id: string;
+  label: string;
+  file: string;
+  bytes: number;
+}
+
+export interface StemState {
+  status: 'idle' | 'running' | 'completed' | 'failed';
+  job_id?: string;
+  stage?: string;
+  error?: string;
+  stems: StemInfo[];
+  notes?: string[];
+}
+
+export async function splitStems(jobId: string): Promise<StemState> {
+  return request<StemState>(`/jobs/${jobId}/stems`, { method: 'POST' });
+}
+
+export async function fetchStems(jobId: string): Promise<StemState> {
+  return request<StemState>(`/jobs/${jobId}/stems`);
+}

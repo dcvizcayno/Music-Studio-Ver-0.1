@@ -182,6 +182,14 @@ npm run dev        # http://127.0.0.1:3000, proxies /api to :8000
      generation; this is the practical lyric-adherence lever, not a hard guarantee.
    - Voice timbre is not cloned.
 3. The Library keeps completed jobs and allows export to WAV/MP3/FLAC.
+   **Split Stems** runs local `demucs-onnx` (`htdemucs_6s`, CPU) into Lead Vocal,
+   Drums, Bass, Guitar, Piano/Keyboard and Synth/Other. **Use as Inspiration**
+   prefills Text to Song with the song's style/tempo for a brand-new melody and
+   lyrics; it never reuses the reference audio or melody.
+4. Voice Personas/voice cloning are **not** a YuE2 feature. A real sample-based
+   persona needs a separate speech/singing voice-conversion model such as
+   [Seed-VC](https://github.com/Plachtaa/seed-vc) (Mac M-series supported), used on
+   the vocal stem and remixed with the other stems. This is not part of v0.1.
 
 Only one heavy job runs at a time. Quit ComfyUI/other model apps before generating.
 
