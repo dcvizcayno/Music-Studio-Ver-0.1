@@ -24,7 +24,7 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
 - **Cover:** reference audio → SheetSage2 melody transcription → YuE2.
   Includes Max/Beast Mode (vocal consistency), Style Influence and Audio Influence
   sliders, 60 MB uploads, 6-minute covers, and production-tag cleanup so YuE2 sees
-  clean `[Verse]` / `[Chorus]` section tags. A master limiter prevents clipping.
+  clean `[Verse]` / `[Chorus]` section tags. A master limiter targets -1 dBFS true peak.
 - **Interactive score:** generated ABC is engraved as sheet music and can be played
   with a local piano soundfont. The raw ABC remains available for copying or export.
 - **No voice cloning.** YuE2 conditions on text style and an optional ABC score. It does not

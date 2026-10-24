@@ -220,6 +220,12 @@ export const CoverSongTab: React.FC<CoverSongTabProps> = ({
           />
         </label>
 
+        <p className="text-[10px] text-neutral-500">
+          YuE2 sings the supplied lyrics. Production-only bracket tags are normalized to
+          [Verse] / [Chorus] before generation. Lyric timing remains model-controlled;
+          raise Style Influence for stronger adherence.
+        </p>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-xs text-neutral-300">
             NAR steps

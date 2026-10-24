@@ -124,7 +124,7 @@ def prepare_cover_lyrics(lyrics: str) -> str:
 
 
 def with_vocal_consistency(style: str) -> str:
-    suffix = "consistent lead vocal, same singer throughout, stable vocal timbre"
+    suffix = "consistent lead vocal, same singer throughout, stable vocal timbre, sing the supplied lyrics exactly, no improvised lyrics"
     if suffix in style.lower():
         return style
     return f"{style.rstrip(' ,')}, {suffix}" if style.strip() else suffix
@@ -466,7 +466,7 @@ async def master_audio(path: Path) -> bool:
     proc = await asyncio.create_subprocess_exec(
         settings.ffmpeg_bin, "-y", "-hide_banner", "-loglevel", "error",
         "-i", str(path),
-        "-af", "alimiter=limit=0.94:attack=5:release=50:level=false",
+        "-af", "alimiter=limit=0.88:attack=5:release=50:level=false",
         "-c:a", "flac", str(target),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
