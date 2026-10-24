@@ -217,6 +217,7 @@ async def generate_cover_fixture(client: httpx.AsyncClient, checks: Dict[str, An
 async def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--with-cover", action="store_true")
+    parser.add_argument("--with-resilience", action="store_true")
     parser.add_argument("--skip-generation", action="store_true")
     parser.add_argument("--skip-build", action="store_true")
     parser.add_argument("--skip-e2e", action="store_true")
@@ -251,10 +252,28 @@ async def main() -> int:
                 else:
                     check(checks, "cover_completed", False, "skipped (use --with-cover)")
                     check(checks, "cover_audio_valid", False, "skipped (use --with-cover)")
+                if args.with_resilience:
+                    resilience = run(
+                        ["node", "qa/resilience.mjs"], ROOT, 240,
+                        {"PLAYWRIGHT_BROWSERS_PATH": str(QA_DIR / ".browsers")},
+                    )
+                    try:
+                        result = json.loads(resilience.stdout.strip().splitlines()[-1])
+                    except Exception:
+                        result = {}
+                    ok = (
+                        result.get("final_status") == "completed"
+                        and result.get("banner") is True
+                        and result.get("audio", 0) > 0
+                        and result.get("disconnectMessage") is False
+                    )
+                    check(checks, "resilience_passed", ok, json.dumps(result)[:600])
+                else:
+                    check(checks, "resilience_passed", False, "skipped (use --with-resilience)")
             else:
                 for name in ("generation_completed", "generation_under_limit", "audio_exists",
                              "duration_min", "sample_rate_48k", "stereo", "non_silent", "sse_terminal",
-                             "cover_completed", "cover_audio_valid"):
+                             "cover_completed", "cover_audio_valid", "resilience_passed"):
                     check(checks, name, False, "skipped")
     finally:
         after_swap = swap_used_mb()

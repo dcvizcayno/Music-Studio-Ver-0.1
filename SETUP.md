@@ -171,6 +171,10 @@ npm run dev        # http://127.0.0.1:3000, proxies /api to :8000
 
 Only one heavy job runs at a time. Quit ComfyUI/other model apps before generating.
 
+The UI polls job status as a fallback, reconnects SSE, and resumes an active job
+after a page reload. While a render runs, the backend holds `caffeinate` and the
+browser requests a Screen Wake Lock so idle sleep does not interrupt the session.
+
 ## 8. QA gate
 
 ```bash

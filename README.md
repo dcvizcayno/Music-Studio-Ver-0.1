@@ -154,6 +154,19 @@ curl -s http://127.0.0.1:8000/api/health
 terminal does not stop the studio. If you previously ran an older build, run
 `./stop.sh` once and start again.
 
+### Screen goes idle or the progress stream disconnects
+
+The studio is built to survive this:
+
+- The UI polls `/api/songs/{id}` every 4 seconds as a safety net, and reconnects
+  the SSE stream with backoff if it drops.
+- Reloading the page resumes the active job from `localStorage` instead of losing it.
+- While a render is active, the backend runs `caffeinate -dimsu` and the browser
+  requests a Screen Wake Lock, so macOS does not idle-sleep mid-render.
+
+The job itself always continues in the backend; a dropped progress stream no longer
+marks it failed.
+
 ### The page loads but the engine is not ready
 
 ```bash

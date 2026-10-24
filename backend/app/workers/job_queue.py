@@ -158,7 +158,20 @@ class JobQueue:
         )
         await self.broadcast(job_id, self._event(job_id, "preparing", 2, "Preparing engine"))
 
+        caffeinate = None
         try:
+            # Keep macOS awake while a render is active. This is released in finally,
+            # including cancel and failure paths.
+            try:
+                caffeinate = await asyncio.create_subprocess_exec(
+                    "caffeinate", "-dimsu",
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL,
+                )
+                logger.info("Started caffeinate for job %s", job_id)
+            except (FileNotFoundError, OSError) as exc:
+                logger.info("caffeinate unavailable: %s", exc)
+
             await self._unload_ollama()
             source_audio = None
             params = job.get("params") or {}
@@ -214,6 +227,15 @@ class JobQueue:
                 job_id,
                 self._event(job_id, "failed", 0, "Failed", error=str(exc)[:500]),
             )
+        finally:
+            if caffeinate is not None and caffeinate.returncode is None:
+                caffeinate.terminate()
+                try:
+                    await asyncio.wait_for(caffeinate.wait(), timeout=5)
+                except (asyncio.TimeoutError, TimeoutError):
+                    caffeinate.kill()
+                    await caffeinate.wait()
+                logger.info("Stopped caffeinate for job %s", job_id)
 
     async def _unload_ollama(self) -> None:
         model = settings.default_ollama_model

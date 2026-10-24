@@ -6,6 +6,7 @@ import {
   deleteJob,
   encodePrompt,
   fetchCapabilities,
+  fetchJob,
   fetchJobs,
   fetchOllamaModels,
   fetchPresets,
@@ -52,6 +53,11 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const streamRef = useRef<EventSource | null>(null);
+  const pollTimerRef = useRef<number | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const activeJobIdRef = useRef<string | null>(null);
+  const jobMetaRef = useRef<Job | null>(null);
+  const wakeLockRef = useRef<any>(null);
 
   const loadStudioState = async () => {
     setIsRefreshingModels(true);
@@ -81,10 +87,159 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    loadStudioState();
-    return () => streamRef.current?.close();
-  }, []);
+  const clearTrackingTimers = () => {
+    if (pollTimerRef.current !== null) {
+      window.clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  };
+
+  const releaseWakeLock = async () => {
+    const lock = wakeLockRef.current;
+    wakeLockRef.current = null;
+    try {
+      await lock?.release?.();
+    } catch {
+      // ignore
+    }
+  };
+
+  const requestWakeLock = async () => {
+    try {
+      const anyNavigator = navigator as any;
+      if (!('wakeLock' in anyNavigator) || wakeLockRef.current) return;
+      const lock = await anyNavigator.wakeLock.request('screen');
+      wakeLockRef.current = lock;
+      lock.addEventListener?.('release', () => {
+        wakeLockRef.current = null;
+      });
+    } catch {
+      // Wake Lock is best-effort; the backend caffeinate process also keeps macOS awake.
+    }
+  };
+
+  const disposeTracking = () => {
+    clearTrackingTimers();
+    streamRef.current?.close();
+    streamRef.current = null;
+    void releaseWakeLock();
+  };
+
+  const stopTracking = () => {
+    disposeTracking();
+    activeJobIdRef.current = null;
+    localStorage.removeItem('yue2_active_job');
+  };
+
+  const finishJob = (data: any) => {
+    const id = activeJobIdRef.current || data.job_id || data.id;
+    if (!id) return;
+    const meta = jobMetaRef.current || ({} as Job);
+    if (data.status === 'completed') {
+      const audioUrl = data.audio_url || `/api/outputs/${id}/audio.flac`;
+      const finalJob: Job = {
+        ...meta,
+        ...data,
+        id,
+        status: 'completed',
+        progress: 100,
+        stage_name: 'Complete',
+        audio_url: audioUrl,
+      };
+      setCompletedAudioUrl(`${audioUrl}?t=${Date.now()}`);
+      setCurrentProgress(100);
+      setCurrentStage('Complete');
+      setActiveJob(finalJob);
+      setLibraryJobs((prev) => [finalJob, ...prev.filter((item) => item.id !== id)]);
+    } else {
+      setError(data.error || data.stage_name || `Job ${data.status}`);
+      setCurrentStage(data.status === 'cancelled' ? 'Cancelled by user' : 'Failed');
+      setActiveJob(null);
+    }
+    setIsGenerating(false);
+    setIsCancelling(false);
+    stopTracking();
+  };
+
+  const applyJobEvent = (data: any, id: string): boolean => {
+    if (activeJobIdRef.current !== id) return false;
+    if (typeof data.progress === 'number') setCurrentProgress(data.progress);
+    if (data.stage_name) setCurrentStage(data.stage_name);
+    if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
+      finishJob({ ...data, id });
+      return true;
+    }
+    return false;
+  };
+
+  const pollJobById = async (id: string) => {
+    if (activeJobIdRef.current !== id) return;
+    try {
+      const job = await fetchJob(id);
+      if (activeJobIdRef.current !== id) return;
+      jobMetaRef.current = { ...(jobMetaRef.current || {}), ...job } as Job;
+      setActiveJob(job);
+      if (applyJobEvent(job, id)) return;
+    } catch {
+      if (activeJobIdRef.current === id) {
+        setCurrentStage('Connection paused — still rendering…');
+      }
+    }
+    if (activeJobIdRef.current === id) {
+      pollTimerRef.current = window.setTimeout(() => pollJobById(id), 4000);
+    }
+  };
+
+  const connectStream = (id: string, attempt = 0) => {
+    if (activeJobIdRef.current !== id) return;
+    const source = new EventSource(`/api/songs/${id}/events`);
+    streamRef.current = source;
+    source.onmessage = (event) => {
+      let data: any;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      const terminal = applyJobEvent(data, id);
+      if (terminal) {
+        source.close();
+      }
+    };
+    source.onerror = () => {
+      source.close();
+      if (activeJobIdRef.current !== id) return;
+      setCurrentStage('Live updates paused — still rendering…');
+      if (reconnectTimerRef.current !== null) return;
+      reconnectTimerRef.current = window.setTimeout(() => {
+        reconnectTimerRef.current = null;
+        connectStream(id, Math.min(attempt + 1, 4));
+      }, Math.min(15000, 1500 * 2 ** attempt));
+    };
+  };
+
+  const startTracking = (job: Job) => {
+    disposeTracking();
+    activeJobIdRef.current = job.id;
+    jobMetaRef.current = job;
+    localStorage.setItem('yue2_active_job', JSON.stringify({
+      id: job.id,
+      title: job.title,
+      type: job.type,
+    }));
+    setActiveJob(job);
+    setIsGenerating(true);
+    setCurrentProgress(job.progress || 2);
+    setCurrentStage(job.stage_name || 'Queued');
+    void requestWakeLock();
+    // Polling is the safety net; SSE is the fast path.
+    void pollJobById(job.id);
+    connectStream(job.id);
+  };
 
   const handleSelectOllama = (model: string) => {
     setSelectedOllama(model);
@@ -96,42 +251,54 @@ export default function App() {
     localStorage.setItem('yue2_selected_yue', model);
   };
 
-  const startStream = (job: Job) => {
-    streamRef.current?.close();
-    const source = new EventSource(`/api/songs/${job.id}/events`);
-    streamRef.current = source;
-    source.onmessage = (event) => {
-      let data: any;
+  useEffect(() => {
+    let cancelled = false;
+
+    const resume = async () => {
+      await loadStudioState();
+      const raw = localStorage.getItem('yue2_active_job');
+      if (!raw || cancelled) return;
       try {
-        data = JSON.parse(event.data);
+        const saved = JSON.parse(raw);
+        const job = await fetchJob(saved.id);
+        if (cancelled) return;
+        setLastGeneratedTitle(saved.title);
+        if (job.status === 'completed') {
+          setCompletedAudioUrl(`${job.audio_url || `/api/outputs/${job.id}/audio.flac`}?t=${Date.now()}`);
+          localStorage.removeItem('yue2_active_job');
+        } else if (job.status === 'failed' || job.status === 'cancelled') {
+          localStorage.removeItem('yue2_active_job');
+        } else {
+          startTracking(job);
+        }
       } catch {
-        return;
-      }
-      if (typeof data.progress === 'number') setCurrentProgress(data.progress);
-      if (data.stage_name) setCurrentStage(data.stage_name);
-      if (data.status === 'completed') {
-        setCompletedAudioUrl(`${data.audio_url || `/api/outputs/${job.id}/audio.flac`}?t=${Date.now()}`);
-        setIsGenerating(false);
-        setActiveJob(null);
-        source.close();
-        setLibraryJobs((prev) => {
-          const completed = { ...job, status: 'completed' as const, progress: 100, stage_name: 'Complete' };
-          return [completed, ...prev.filter((item) => item.id !== job.id)];
-        });
-      } else if (data.status === 'failed' || data.status === 'cancelled') {
-        setError(data.error || data.stage_name || `Job ${data.status}`);
-        setIsGenerating(false);
-        setActiveJob(null);
-        source.close();
+        localStorage.removeItem('yue2_active_job');
       }
     };
-    source.onerror = () => {
-      source.close();
-      setIsGenerating(false);
-      setActiveJob(null);
-      setError('Progress stream disconnected. Check the Library for the final job state.');
+    void resume();
+
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (activeJobIdRef.current) {
+        void requestWakeLock();
+        void pollJobById(activeJobIdRef.current);
+      } else {
+        void loadStudioState();
+      }
     };
-  };
+    const onOnline = () => {
+      if (activeJobIdRef.current) void pollJobById(activeJobIdRef.current);
+    };
+
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', onOnline);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onOnline);
+      disposeTracking();
+    };
+  }, []);
 
   const handleDraftLyrics = async (params: {
     idea: string;
@@ -176,7 +343,7 @@ export default function App() {
         model: 'YuE2-3B MLX 8-bit',
         qwen_model: selectedOllama,
       });
-      startStream(job);
+      startTracking(job);
     } catch (err) {
       setIsGenerating(false);
       setActiveJob(null);
@@ -194,7 +361,7 @@ export default function App() {
       setActiveJob(job);
       setLastGeneratedTitle(String(form.get('title') || 'Cover'));
       setLastJobSnapshot({ title: form.get('title'), type: 'cover' });
-      startStream(job);
+      startTracking(job);
     } catch (err) {
       setIsGenerating(false);
       setActiveJob(null);
@@ -210,7 +377,7 @@ export default function App() {
     } catch (err) {
       setError(errorText(err));
     } finally {
-      streamRef.current?.close();
+      stopTracking();
       setIsGenerating(false);
       setIsCancelling(false);
       setActiveJob(null);

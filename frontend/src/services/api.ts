@@ -50,6 +50,10 @@ export async function fetchJobs(): Promise<Job[]> {
   return data.jobs || [];
 }
 
+export async function fetchJob(jobId: string): Promise<Job> {
+  return request<Job>(`/songs/${jobId}`);
+}
+
 export async function fetchSystemStatus(): Promise<SystemStatusData> {
   return request<SystemStatusData>('/status');
 }
