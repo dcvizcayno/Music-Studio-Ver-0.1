@@ -67,6 +67,9 @@ open http://127.0.0.1:8000
 `start.sh` starts the FastAPI server, serves the production frontend build, and leaves the
 MLX engine idle until a job is submitted. Logs are in `logs/`.
 
+To start the studio automatically after login/reboot, install the launchd agent:
+[`docs/AUTOSTART.md`](docs/AUTOSTART.md) or `./scripts/install-autostart.sh`.
+
 For frontend development:
 
 ```bash

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start the local YuE2 Song Studio (FastAPI + built React UI).
+# Start the local Song Studio (FastAPI + built React UI).
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,6 +9,8 @@ mkdir -p logs data outputs uploads
 PORT="${PORT:-8000}"
 PID_FILE="$ROOT_DIR/logs/backend.pid"
 LOG_FILE="$ROOT_DIR/logs/backend.log"
+LABEL="com.danielvizcayno.musicstudio"
+PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 
 if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
   echo "Backend already running (PID $(cat "$PID_FILE"))."
@@ -30,6 +32,25 @@ fi
 if curl -s -m 2 "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
   echo "Port ${PORT} is already serving the studio."
   exit 0
+fi
+
+# If the login agent is installed, let launchd own the process.
+if [[ -f "$PLIST" ]]; then
+  echo "Starting studio through launchd ($LABEL)..."
+  if ! launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1; then
+    launchctl bootstrap "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true
+  fi
+  launchctl kickstart -k "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || true
+  for _ in $(seq 1 40); do
+    if curl -s -m 2 "http://127.0.0.1:${PORT}/api/health" | grep -q '"status":"ok"'; then
+      echo "Studio ready: http://127.0.0.1:${PORT}"
+      echo "Auto-start label: $LABEL"
+      exit 0
+    fi
+    sleep 0.5
+  done
+  echo "launchd could not start the studio in this shell; falling back to a manual launch." >&2
+  echo "The plist remains installed and should load at the next login." >&2
 fi
 
 echo "Starting backend on http://127.0.0.1:${PORT} ..."

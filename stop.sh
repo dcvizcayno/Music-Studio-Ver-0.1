@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
-# Stop the local YuE2 Song Studio.
+# Stop the local Song Studio. A launchd agent is unloaded (not restarted).
 set -uo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PID_FILE="$ROOT_DIR/logs/backend.pid"
+LABEL="com.danielvizcayno.musicstudio"
+PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+
+if launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1; then
+  echo "Stopping launchd agent ($LABEL)..."
+  launchctl bootout "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || \
+    launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true
+  rm -f "$PID_FILE"
+  echo "Stopped. The plist remains and will load again at next login, or use ./start.sh."
+  exit 0
+fi
 
 if [[ ! -f "$PID_FILE" ]]; then
-  echo "No backend PID file."
+  echo "Backend is not running."
   exit 0
 fi
 

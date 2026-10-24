@@ -153,6 +153,15 @@ cd /path/to/default-workspace/Music_draft2
 ./scripts/doctor.sh
 ```
 
+Optional — start automatically after login/reboot:
+
+```bash
+./scripts/install-autostart.sh
+```
+
+See [docs/AUTOSTART.md](docs/AUTOSTART.md) for verification, stop/restart, and
+uninstall.
+
 `start.sh` detaches the backend with `nohup`/`disown`, so closing the terminal
 does not stop it. `./stop.sh` stops it.
 
