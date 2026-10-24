@@ -108,6 +108,7 @@ export async function generateSong(payload: {
   duration_seconds: number;
   precision: string;
   cot?: 'full' | 'off';
+  vocal_gender?: 'male' | 'female' | null;
   qwen_model?: string;
 }): Promise<Job> {
   return request<Job>('/songs/generate', {

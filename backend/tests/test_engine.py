@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from app.services.engine import MlxEngine, parse_progress_line
+from app.services.engine import MlxEngine, apply_vocal_gender, parse_progress_line
 
 
 def test_progress_parser_planning_and_render():
@@ -56,3 +56,12 @@ def test_build_request_clamps_duration():
     }
     request = engine.build_request(job)
     assert request["semantic_sampling"]["max_tokens"] <= 9000
+
+
+def test_vocal_gender_overrides_style_wording():
+    style = "English, warm acoustic pop, female vocal, 90 BPM"
+    result = apply_vocal_gender(style, "male")
+    assert "male vocal" in result
+    assert "female" not in result.lower()
+    assert ", ," not in result
+    assert apply_vocal_gender(style, None) == style

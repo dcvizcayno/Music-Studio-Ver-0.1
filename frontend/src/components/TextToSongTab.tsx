@@ -48,6 +48,7 @@ interface TextToSongTabProps {
     duration_seconds: number;
     precision: string;
     cot: 'full' | 'off';
+    vocal_gender?: 'male' | 'female' | null;
   }) => Promise<void>;
   isDrafting: boolean;
   isGenerating: boolean;
@@ -359,6 +360,7 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
 }) => {
   // 1 to 3 Styles Checkbox Selection (Default: Modern Pop)
   const [selectedPresetIds, setSelectedPresetIds] = useState<string[]>(['pop']);
+  const [vocalGender, setVocalGender] = useState<'male' | 'female' | null>(null);
 
   // Compute Initial Fused Style (Modern Pop default)
   const initialFused = fuseStyles(['pop'], presets);
@@ -547,7 +549,8 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
       cfg: 1.0,
       duration_seconds: durationSeconds,
       precision,
-      cot: planScore ? 'full' : 'off'
+      cot: planScore ? 'full' : 'off',
+      vocal_gender: vocalGender
     });
   };
 
@@ -573,6 +576,50 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
               <h3 className="text-base font-semibold text-neutral-100">01. Prompt Encoder (Qwen LLM)</h3>
               <p className="text-xs text-neutral-400 mt-0.5">
                 Translates your story premise into structured style tags and evocative human lyrics.
+              </p>
+            </div>
+
+            {/* Vocal Gender (mutually exclusive, fed to YuE2) */}
+            <div className="mb-5 bg-neutral-950/70 border border-neutral-800 rounded-lg p-3.5 space-y-2.5">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-200">
+                <Music className="w-3.5 h-3.5 text-amber-400" />
+                <span>Vocal Gender</span>
+                <span className="text-neutral-500 font-normal">(optional · overrides style vocal wording)</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  ['male', 'Male'],
+                  ['female', 'Female'],
+                ] as const).map(([value, label]) => {
+                  const checked = vocalGender === value;
+                  const disabled = vocalGender !== null && vocalGender !== value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setVocalGender(checked ? null : value)}
+                      disabled={disabled}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                        checked
+                          ? 'border-amber-500/70 bg-amber-500/10 text-amber-200'
+                          : disabled
+                          ? 'cursor-not-allowed border-neutral-850 bg-neutral-950/40 text-neutral-600 opacity-50'
+                          : 'border-neutral-800 bg-neutral-950 text-neutral-300 hover:border-neutral-700'
+                      }`}
+                      title={disabled ? 'Clear the other gender first' : `Use ${label.toLowerCase()} vocal`}
+                    >
+                      <span className={`flex h-4 w-4 items-center justify-center rounded ${
+                        checked ? 'bg-amber-400 text-neutral-950' : 'border border-neutral-700 bg-neutral-950'
+                      }`}>
+                        {checked && <Check className="h-3 w-3 stroke-[3]" />}
+                      </span>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-neutral-500">
+                Sent directly to YuE2 as “male vocal” or “female vocal”. It replaces any male/female wording in the style tags.
               </p>
             </div>
 

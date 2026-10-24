@@ -75,6 +75,7 @@ async def generate_song(request: GenerateSongRequest):
         "duration_seconds": duration,
         "params": {
             "cot": request.cot,
+            "vocal_gender": request.vocal_gender,
             "nar_steps": steps,
             "duration_seconds": duration,
             "precision": settings.mlx_precision,

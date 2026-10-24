@@ -103,13 +103,14 @@ async def generate_fixture(client: httpx.AsyncClient, checks: Dict[str, Any], me
     payload = {
         "title": "QA Fixture",
         "lyrics": "[Verse]\nLight on the window\n[Chorus]\nHold the morning",
-        "style_tags": "English, warm acoustic pop, male vocal, 90 BPM",
+        "style_tags": "English, warm acoustic pop, female vocal, 90 BPM",
         "seed": 12345,
         "steps": 8,
         "cfg": 1.0,
         "duration_seconds": 15,
         "precision": "8bit",
         "cot": "full",
+        "vocal_gender": "male",
     }
     started = time.time()
     try:
@@ -154,6 +155,14 @@ async def generate_fixture(client: httpx.AsyncClient, checks: Dict[str, Any], me
     check(checks, "sample_rate_48k", info.get("sample_rate") == 48000, str(info.get("sample_rate")))
     check(checks, "stereo", info.get("channels") == 2, str(info.get("channels")))
     check(checks, "non_silent", info.get("mean_volume_db", -99) > -45, f"{info.get('mean_volume_db')} dB")
+
+    try:
+        request_path = ROOT / "outputs" / job["id"] / "request.json"
+        request_data = json.loads(request_path.read_text(encoding="utf-8"))
+        style = str(request_data.get("style", "")).lower()
+        check(checks, "vocal_gender_fed", "male vocal" in style and "female" not in style, style[:300])
+    except Exception as exc:
+        check(checks, "vocal_gender_fed", False, f"request inspection failed: {exc}")
 
     try:
         abc = await client.get(f"{BASE}/api/songs/{job['id']}/abc")

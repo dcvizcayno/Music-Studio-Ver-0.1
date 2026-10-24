@@ -17,7 +17,9 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
 
 - **Text-to-song:** style + lyrics → YuE2 plan → 48 kHz stereo audio.
   Includes a lyrics/BPM auto-duration estimate (bars × 4 × 60 ÷ BPM, up to 6 min),
-  a **Plan score / No score** toggle, and a readable/exportable ABC melody.
+  a **Plan score / No score** toggle, a mutually exclusive **Vocal Gender**
+  selector (fed directly to YuE2 as “male vocal” / “female vocal”), and a
+  readable/exportable ABC melody.
 - **Cover:** reference audio → SheetSage2 melody transcription → YuE2 melody mode.
 - **No voice cloning.** YuE2 conditions on text style and an optional ABC score. It does not
   accept a speaker embedding; covers preserve melody, not the original singer's timbre.

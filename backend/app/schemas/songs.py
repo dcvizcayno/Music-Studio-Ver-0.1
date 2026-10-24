@@ -2,7 +2,7 @@
 Pydantic v2 schemas for song generation, covers, and queue jobs.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -19,6 +19,7 @@ class GenerateSongRequest(BaseModel):
     precision: str = Field("8bit", description="8bit or bf16")
     qwen_model: Optional[str] = Field(None, description="Ollama model used for lyrics")
     cot: str = Field("full", pattern="^(full|melody|off)$", description="YuE2 planning mode")
+    vocal_gender: Optional[Literal["male", "female"]] = Field(None, description="Optional vocal gender override")
     voice_profile_id: Optional[str] = Field(None, description="Vocal reference profile ID")
 
 

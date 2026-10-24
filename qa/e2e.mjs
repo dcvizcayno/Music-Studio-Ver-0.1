@@ -21,6 +21,7 @@ try {
     (await page.getByText('Auto from lyrics & BPM').count()) > 0 &&
     (await page.getByText('Plan score (ABC)').count()) > 0 &&
     (await page.getByText('No score · faster').count()) > 0 &&
+    (await page.getByText('Vocal Gender').count()) > 0 &&
     (await page.locator('input[type="range"][max="360"]').count()) > 0;
   for (const label of ['Text to Song', 'Cover Studio', 'Library', 'System Status', 'Settings']) {
     const count = await page.getByText(label, { exact: true }).count();

@@ -52,6 +52,23 @@ class EngineResult:
 ProgressCallback = Callable[[EngineProgress], Awaitable[None]]
 
 
+_GENDER_RE = re.compile(
+    r"\b(?:male|female)\b(?:\s+(?:vocal|vocals|voice|voices|singer|singers|lead|leads|vocalist))?",
+    re.IGNORECASE,
+)
+
+
+def apply_vocal_gender(style: str, gender: Optional[str]) -> str:
+    """Override any vocal-gender wording and append the selected YuE2 style token."""
+    if gender not in {"male", "female"}:
+        return style
+    cleaned = _GENDER_RE.sub("", style or "")
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    cleaned = re.sub(r"\s*,\s*", ", ", cleaned)
+    cleaned = re.sub(r"(?:,\s*){2,}", ", ", cleaned).strip(" ,")
+    return f"{cleaned}, {gender} vocal" if cleaned else f"{gender} vocal"
+
+
 _STAGE_RULES = (
     ("Verifying model files", "preparing", 3),
     ("Resolving model files", "preparing", 3),
@@ -173,9 +190,10 @@ class MlxEngine:
         if cot not in {"full", "melody", "off"}:
             cot = "full"
 
+        style = job.get("style_tags") or params.get("style_tags") or ""
         request: dict[str, Any] = {
             "id": job["id"],
-            "style": job.get("style_tags") or params.get("style_tags") or "",
+            "style": apply_vocal_gender(style, params.get("vocal_gender")),
             "lyrics": job.get("lyrics") or "",
             "cot": cot,
             "seed": int(job.get("seed") or params.get("seed") or 0),

@@ -358,6 +358,7 @@ export default function App() {
     duration_seconds: number;
     precision: string;
     cot: 'full' | 'off';
+    vocal_gender?: 'male' | 'female' | null;
   }) => {
     setIsGenerating(true);
     setError(null);
