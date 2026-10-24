@@ -6,7 +6,7 @@ Replaced the simulated ComfyUI engine with a real local `mlx-Yue` engine on Appl
 
 ## Environment
 
-- Workspace: `/Users/danielvizcayno/Documents/deepseek-harness/default-workspace`
+- Workspace: `/path/to/default-workspace`
 - App: `Music_draft2`
 - Engine: `engines/mlx-Yue` at commit `c5b5a8190f78c74aa671a4caa19dae8b8e04b3d8`
 - Models: `models/mlx-Yue2-3B` (8-bit + bf16 + NAR) and `models/YuE2-Vae`

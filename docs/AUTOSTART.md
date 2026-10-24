@@ -6,7 +6,7 @@ automatically after you log in to macOS and keeps it alive after crashes.
 ## Install
 
 ```bash
-cd /Users/danielvizcayno/Documents/deepseek-harness/default-workspace/Music_draft2
+cd /path/to/Music_draft2
 ./scripts/install-autostart.sh
 ```
 
