@@ -1,6 +1,7 @@
 # Music Studio Ver 0.1 — YuE2 Song Studio
 
 A local, Apple-Silicon-native song studio. Full install guide: [SETUP.md](SETUP.md).
+Project page: **[Song Studio on Hugging Face](https://huggingface.co/spaces/dcvizcayno/song-studio)**.
 Feature deep-dives: [stems](docs/STEMS.md), [QA agents](docs/QA_AGENTS.md),
 [Voice Personas](docs/VOICE_PERSONAS.md). Lyrics are drafted with Qwen through Ollama;
 songs and covers are synthesized with **YuE2-3B through [mlx-Yue](https://github.com/vanch007/mlx-Yue)**

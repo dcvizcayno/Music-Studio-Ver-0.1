@@ -1,5 +1,7 @@
 # Setup — Music Studio Ver 0.1
 
+Project page: [Song Studio on Hugging Face](https://huggingface.co/spaces/dcvizcayno/song-studio)
+
 This is the exact setup used on the target MacBook Air M5 (24 GB, macOS 26.7.1).
 The app is local-only and binds to `127.0.0.1`.
 
