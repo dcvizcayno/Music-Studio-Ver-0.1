@@ -12,10 +12,16 @@ page.on('pageerror', (error) => errors.push(String(error)));
 let tabs = [];
 let fileInput = 0;
 let loaded = false;
+let textFeatures = false;
 try {
   await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
   await page.getByText('Song Studio', { exact: true }).first().waitFor({ timeout: 10000 });
   loaded = true;
+  textFeatures =
+    (await page.getByText('Auto from lyrics & BPM').count()) > 0 &&
+    (await page.getByText('Plan score (ABC)').count()) > 0 &&
+    (await page.getByText('No score · faster').count()) > 0 &&
+    (await page.locator('input[type="range"][max="360"]').count()) > 0;
   for (const label of ['Text to Song', 'Cover Studio', 'Library', 'System Status', 'Settings']) {
     const count = await page.getByText(label, { exact: true }).count();
     if (count > 0) tabs.push(label);
@@ -38,6 +44,7 @@ console.log(JSON.stringify({
   ok: loaded && tabs.length >= 4 && fileInput > 0 && errors.length === 0,
   tabs,
   file_input: fileInput,
+  text_features: textFeatures,
   console_errors: errors.length,
   errors: errors.slice(0, 5),
 }));

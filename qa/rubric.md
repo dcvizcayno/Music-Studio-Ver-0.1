@@ -10,7 +10,7 @@
 
 | Category | Weight | What it proves |
 |---|---:|---|
-| Functional | 0.30 | Health, engine readiness, a real completed generation, terminal SSE, idle-disconnect recovery |
+| Functional | 0.30 | Health, engine readiness, a real completed generation, ABC score, terminal SSE, idle-disconnect recovery |
 | Audio | 0.20 | A real 48 kHz stereo file, ≥ 8 s, not silent |
 | Tests | 0.15 | Backend pytest and frontend production build pass |
 | UX | 0.15 | Page loads, core tabs exist, no console errors, screenshot captured |

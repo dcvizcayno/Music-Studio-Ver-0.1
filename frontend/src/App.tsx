@@ -7,6 +7,7 @@ import {
   encodePrompt,
   fetchCapabilities,
   fetchJob,
+  fetchJobAbc,
   fetchJobs,
   fetchOllamaModels,
   fetchPresets,
@@ -47,6 +48,9 @@ export default function App() {
   const [completedAudioUrl, setCompletedAudioUrl] = useState<string | undefined>(undefined);
   const [lastGeneratedTitle, setLastGeneratedTitle] = useState<string | undefined>(undefined);
   const [lastJobSnapshot, setLastJobSnapshot] = useState<any>(null);
+  const [lastJobId, setLastJobId] = useState<string | null>(null);
+  const [scoreAbc, setScoreAbc] = useState<string | null>(null);
+  const [scoreLoading, setScoreLoading] = useState(false);
   const [libraryJobs, setLibraryJobs] = useState<Job[]>([]);
   const [systemStatus, setSystemStatus] = useState<SystemStatusData | null>(null);
   const [isScanningSystem, setIsScanningSystem] = useState(false);
@@ -135,6 +139,22 @@ export default function App() {
     localStorage.removeItem('yue2_active_job');
   };
 
+  const loadScore = async (id: string, cot: string) => {
+    setScoreAbc(null);
+    if (cot === 'off') {
+      setScoreLoading(false);
+      return;
+    }
+    setScoreLoading(true);
+    try {
+      setScoreAbc(await fetchJobAbc(id));
+    } catch {
+      setScoreAbc(null);
+    } finally {
+      setScoreLoading(false);
+    }
+  };
+
   const finishJob = (data: any) => {
     const id = activeJobIdRef.current || data.job_id || data.id;
     if (!id) return;
@@ -154,6 +174,9 @@ export default function App() {
       setCurrentProgress(100);
       setCurrentStage('Complete');
       setActiveJob(finalJob);
+      setLastJobId(id);
+      const cot = String((data.params as any)?.cot || (meta as any).params?.cot || 'full');
+      void loadScore(id, cot);
       setLibraryJobs((prev) => [finalJob, ...prev.filter((item) => item.id !== id)]);
     } else {
       setError(data.error || data.stage_name || `Job ${data.status}`);
@@ -224,6 +247,9 @@ export default function App() {
 
   const startTracking = (job: Job) => {
     disposeTracking();
+    setScoreAbc(null);
+    setScoreLoading(false);
+    setLastJobId(job.id);
     activeJobIdRef.current = job.id;
     jobMetaRef.current = job;
     localStorage.setItem('yue2_active_job', JSON.stringify({
@@ -265,6 +291,8 @@ export default function App() {
         setLastGeneratedTitle(saved.title);
         if (job.status === 'completed') {
           setCompletedAudioUrl(`${job.audio_url || `/api/outputs/${job.id}/audio.flac`}?t=${Date.now()}`);
+          setLastJobId(job.id);
+          void loadScore(job.id, String((job as any).params?.cot || 'full'));
           localStorage.removeItem('yue2_active_job');
         } else if (job.status === 'failed' || job.status === 'cancelled') {
           localStorage.removeItem('yue2_active_job');
@@ -329,6 +357,7 @@ export default function App() {
     cfg: number;
     duration_seconds: number;
     precision: string;
+    cot: 'full' | 'off';
   }) => {
     setIsGenerating(true);
     setError(null);
@@ -343,6 +372,9 @@ export default function App() {
         model: 'YuE2-3B MLX 8-bit',
         qwen_model: selectedOllama,
       });
+      setLastJobId(job.id);
+      setScoreAbc(null);
+      setScoreLoading(false);
       startTracking(job);
     } catch (err) {
       setIsGenerating(false);
@@ -361,6 +393,9 @@ export default function App() {
       setActiveJob(job);
       setLastGeneratedTitle(String(form.get('title') || 'Cover'));
       setLastJobSnapshot({ title: form.get('title'), type: 'cover' });
+      setLastJobId(job.id);
+      setScoreAbc(null);
+      setScoreLoading(false);
       startTracking(job);
     } catch (err) {
       setIsGenerating(false);
@@ -407,6 +442,7 @@ export default function App() {
       cfg: 1,
       duration_seconds: job.duration_seconds || 60,
       precision: '8bit',
+      cot: (job as any).params?.cot === 'off' ? 'off' : 'full',
     });
   };
 
@@ -491,6 +527,10 @@ export default function App() {
             completedAudioUrl={completedAudioUrl}
             lastGeneratedTitle={lastGeneratedTitle}
             lastJobSnapshot={lastJobSnapshot}
+            abcScore={scoreAbc}
+            abcLoading={scoreLoading}
+            abcUrl={lastJobId ? `/api/songs/${lastJobId}/abc` : undefined}
+            scoreRequested={lastJobSnapshot?.cot !== 'off'}
           />
         )}
 

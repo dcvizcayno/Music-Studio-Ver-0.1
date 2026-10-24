@@ -163,7 +163,11 @@ npm run dev        # http://127.0.0.1:3000, proxies /api to :8000
 ## 7. Generate
 
 1. **Text to Song:** write/draft lyrics, choose a preset, set duration and NAR
-   steps (8 draft, 16 standard, 32 final), then Generate.
+   steps (8 draft, 16 standard, 32 final), then Generate. “Auto from lyrics & BPM”
+   estimates length with the toolstud.io formula (bars × 4 × 60 ÷ BPM), up to 6
+   minutes. “Plan score (ABC)” generates an editable melody; “No score · faster”
+   skips planning. The returned ABC is shown under the player and can be copied or
+   downloaded as `score.abc`.
 2. **Cover Studio:** upload a reference audio file (WAV/MP3/FLAC, ≤50 MB),
    choose the target style, confirm rights, and Generate. SheetSage2 transcribes
    the melody; YuE2 renders a new arrangement. Voice timbre is not cloned.

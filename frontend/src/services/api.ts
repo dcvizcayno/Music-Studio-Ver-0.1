@@ -54,6 +54,14 @@ export async function fetchJob(jobId: string): Promise<Job> {
   return request<Job>(`/songs/${jobId}`);
 }
 
+export async function fetchJobAbc(jobId: string): Promise<string> {
+  const response = await fetch(`${API_BASE}/songs/${jobId}/abc`);
+  if (!response.ok) {
+    throw new ApiError(`No ABC score (HTTP ${response.status})`, response.status);
+  }
+  return response.text();
+}
+
 export async function fetchSystemStatus(): Promise<SystemStatusData> {
   return request<SystemStatusData>('/status');
 }
@@ -99,6 +107,7 @@ export async function generateSong(payload: {
   cfg: number;
   duration_seconds: number;
   precision: string;
+  cot?: 'full' | 'off';
   qwen_model?: string;
 }): Promise<Job> {
   return request<Job>('/songs/generate', {

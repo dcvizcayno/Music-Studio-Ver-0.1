@@ -35,5 +35,6 @@ Replaced the simulated ComfyUI engine with a real local `mlx-Yue` engine on Appl
 - No `sudo` used.
 - ComfyUI was stopped; its models were not modified.
 - The app binds to `127.0.0.1` only.
+- Text-to-song: auto duration from lyric lines + BPM using `bars × beats × 60 ÷ BPM` (toolstud.io formula), 360 s cap; Plan score / No score toggle; ABC score shown after render and served at `/api/songs/{id}/abc`.
 - Idle resilience: UI polls job status, reconnects SSE, resumes after reload; backend runs `caffeinate -dimsu` during renders and releases it on completion/cancel.
 - Cover Studio "Failed to fetch" root cause: `start.sh` did not detach the backend, so it stopped when the launcher shell exited. Fixed with `nohup` + `disown`; log/PID paths are now absolute under the repo `logs/`.

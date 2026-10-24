@@ -109,7 +109,7 @@ async def generate_fixture(client: httpx.AsyncClient, checks: Dict[str, Any], me
         "cfg": 1.0,
         "duration_seconds": 15,
         "precision": "8bit",
-        "cot": "off",
+        "cot": "full",
     }
     started = time.time()
     try:
@@ -154,6 +154,13 @@ async def generate_fixture(client: httpx.AsyncClient, checks: Dict[str, Any], me
     check(checks, "sample_rate_48k", info.get("sample_rate") == 48000, str(info.get("sample_rate")))
     check(checks, "stereo", info.get("channels") == 2, str(info.get("channels")))
     check(checks, "non_silent", info.get("mean_volume_db", -99) > -45, f"{info.get('mean_volume_db')} dB")
+
+    try:
+        abc = await client.get(f"{BASE}/api/songs/{job['id']}/abc")
+        text = abc.text.lstrip()
+        check(checks, "abc_score", abc.status_code == 200 and text.startswith("X:") and "K:" in text, f"HTTP {abc.status_code}, {len(text)} chars")
+    except Exception as exc:
+        check(checks, "abc_score", False, f"ABC fetch failed: {exc}")
 
     try:
         async with client.stream("GET", f"{BASE}/api/songs/{job['id']}/events") as stream:
@@ -299,10 +306,11 @@ async def main() -> int:
         except Exception:
             ui = {"ok": False, "error": (e2e.stdout + e2e.stderr)[-500:]}
         check(checks, "tabs_present", bool(ui.get("tabs")), str(ui.get("tabs")))
+        check(checks, "text_features", ui.get("text_features") is True, str(ui.get("text_features")))
         check(checks, "no_console_errors", ui.get("console_errors", 1) == 0, str(ui.get("console_errors")))
         check(checks, "screenshot", (REPORTS / "ui.png").exists(), str(REPORTS / "ui.png"))
     else:
-        for name in ("tabs_present", "no_console_errors", "screenshot"):
+        for name in ("tabs_present", "text_features", "no_console_errors", "screenshot"):
             check(checks, name, False, "skipped")
 
     readme = (ROOT / "README.md").read_text(encoding="utf-8", errors="replace") if (ROOT / "README.md").exists() else ""

@@ -76,6 +76,7 @@ export interface Job {
   progress: number;
   stage_name: string;
   audio_url?: string;
+  abc_url?: string;
   error_message?: string;
   workflow_snapshot?: any;
   created_at: string;

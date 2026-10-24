@@ -15,7 +15,7 @@ class GenerateSongRequest(BaseModel):
     seed: Optional[int] = Field(None, description="Random seed (auto-generated if omitted)")
     steps: int = Field(8, ge=1, le=64, description="NAR ODE steps: 8 draft, 16, 32 final")
     cfg: float = Field(1.0, ge=0.0, le=10.0, description="Kept for UI compatibility; MLX uses cfg_scale=1.0")
-    duration_seconds: int = Field(60, ge=15, le=180, description="Maximum duration in seconds")
+    duration_seconds: int = Field(60, ge=15, le=360, description="Maximum duration in seconds (up to 6 minutes)")
     precision: str = Field("8bit", description="8bit or bf16")
     qwen_model: Optional[str] = Field(None, description="Ollama model used for lyrics")
     cot: str = Field("full", pattern="^(full|melody|off)$", description="YuE2 planning mode")

@@ -12,10 +12,14 @@ import {
   Check,
   Layers,
   RotateCcw,
-  Gauge
+  Gauge,
+  Copy,
+  Download,
+  FileMusic
 } from 'lucide-react';
 import { Preset } from '../types';
 import { AudioWaveformPlayer } from './AudioWaveformPlayer';
+import { estimateSongLength } from '../utils/songLength';
 
 interface TextToSongTabProps {
   presets: Preset[];
@@ -43,12 +47,17 @@ interface TextToSongTabProps {
     cfg: number;
     duration_seconds: number;
     precision: string;
+    cot: 'full' | 'off';
   }) => Promise<void>;
   isDrafting: boolean;
   isGenerating: boolean;
   completedAudioUrl?: string;
   lastGeneratedTitle?: string;
   lastJobSnapshot?: any;
+  abcScore?: string | null;
+  abcLoading?: boolean;
+  abcUrl?: string;
+  scoreRequested?: boolean;
 }
 
 const BANNED_WORDS = ['narrator', 'delve', 'tapestry', 'foster'];
@@ -342,7 +351,11 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
   isGenerating,
   completedAudioUrl,
   lastGeneratedTitle,
-  lastJobSnapshot
+  lastJobSnapshot,
+  abcScore,
+  abcLoading,
+  abcUrl,
+  scoreRequested
 }) => {
   // 1 to 3 Styles Checkbox Selection (Default: Modern Pop)
   const [selectedPresetIds, setSelectedPresetIds] = useState<string[]>(['pop']);
@@ -375,6 +388,17 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
   const [cfg, setCfg] = useState<number>(1.0);
   const [durationSeconds, setDurationSeconds] = useState<number>(initialFused.blendedDuration);
   const [precision, setPrecision] = useState<string>('8bit');
+  const [autoDuration, setAutoDuration] = useState(false);
+  const [planScore, setPlanScore] = useState(true);
+  const [scoreCopied, setScoreCopied] = useState(false);
+
+  const autoEstimate = estimateSongLength(lyrics, customBpm);
+  useEffect(() => {
+    if (autoDuration) setDurationSeconds(autoEstimate.seconds);
+  }, [autoDuration, autoEstimate.seconds]);
+  useEffect(() => {
+    setScoreCopied(false);
+  }, [abcScore]);
 
   // Active Fused Style Calculation
   const currentFused = fuseStyles(selectedPresetIds, presets);
@@ -522,8 +546,20 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
       steps: steps >= 32 ? 32 : steps >= 16 ? 16 : 8,
       cfg: 1.0,
       duration_seconds: durationSeconds,
-      precision
+      precision,
+      cot: planScore ? 'full' : 'off'
     });
+  };
+
+  const handleCopyScore = async () => {
+    if (!abcScore) return;
+    try {
+      await navigator.clipboard.writeText(abcScore);
+      setScoreCopied(true);
+      window.setTimeout(() => setScoreCopied(false), 1800);
+    } catch {
+      // Clipboard can be unavailable in non-secure contexts; the score is selectable.
+    }
   };
 
   return (
@@ -1012,21 +1048,74 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
                 />
               </div>
 
-              {/* Duration Slider */}
+              {/* Duration Slider + automatic estimate */}
               <div>
                 <div className="flex items-center justify-between text-xs text-neutral-300 mb-1.5">
                   <label className="font-medium">Target Duration</label>
                   <span className="font-mono tabular-nums text-neutral-400">{durationSeconds} seconds</span>
                 </div>
+                <label className="mb-1.5 flex items-center gap-2 text-[11px] text-neutral-400">
+                  <input
+                    type="checkbox"
+                    checked={autoDuration}
+                    onChange={(e) => setAutoDuration(e.target.checked)}
+                    className="accent-amber-500"
+                  />
+                  Auto from lyrics &amp; BPM
+                </label>
                 <input
                   type="range"
                   min="30"
-                  max="180"
+                  max="360"
                   step="5"
                   value={durationSeconds}
-                  onChange={(e) => setDurationSeconds(parseInt(e.target.value))}
+                  onChange={(e) => {
+                    setAutoDuration(false);
+                    setDurationSeconds(parseInt(e.target.value));
+                  }}
                   className="w-full accent-amber-500 bg-neutral-800 h-1.5 rounded-lg cursor-pointer"
                 />
+                <div className="mt-1 flex justify-between text-[10px] text-neutral-500 font-mono">
+                  <span>30s</span>
+                  <span>
+                    {autoDuration
+                      ? `≈ ${autoEstimate.bars} bars @ ${autoEstimate.bpm} BPM (${autoEstimate.lines} lyric lines)`
+                      : 'Formula: bars × 4 × 60 ÷ BPM'}
+                  </span>
+                  <span>6 min</span>
+                </div>
+              </div>
+
+              {/* Score plan toggle */}
+              <div>
+                <label className="block text-xs font-medium text-neutral-300 mb-1.5">Score plan</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPlanScore(true)}
+                    className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                      planScore
+                        ? 'border-amber-500/60 bg-amber-500/10 text-amber-200'
+                        : 'border-neutral-800 bg-neutral-950 text-neutral-400 hover:border-neutral-700'
+                    }`}
+                  >
+                    Plan score (ABC)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlanScore(false)}
+                    className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                      !planScore
+                        ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-200'
+                        : 'border-neutral-800 bg-neutral-950 text-neutral-400 hover:border-neutral-700'
+                    }`}
+                  >
+                    No score · faster
+                  </button>
+                </div>
+                <p className="mt-1 text-[10px] text-neutral-500">
+                  Plan score writes an editable ABC melody before synthesis. No score skips the plan and starts faster.
+                </p>
               </div>
 
               {/* Precision */}
@@ -1078,6 +1167,51 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
                 title={lastGeneratedTitle || songTitle}
                 settingsSnapshot={lastJobSnapshot}
               />
+
+              <div className="mt-4 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <FileMusic className="h-4 w-4 text-amber-400" />
+                    <h4 className="text-sm font-semibold text-neutral-200">ABC melody / score</h4>
+                    {abcLoading && <span className="text-[10px] text-neutral-500">loading…</span>}
+                  </div>
+                  {abcScore && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleCopyScore}
+                        className="flex items-center gap-1 rounded-lg border border-neutral-700 px-2.5 py-1 text-[11px] text-neutral-300 hover:bg-neutral-800"
+                      >
+                        {scoreCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                        {scoreCopied ? 'Copied' : 'Copy'}
+                      </button>
+                      {abcUrl && (
+                        <a
+                          href={abcUrl}
+                          download="score.abc"
+                          className="flex items-center gap-1 rounded-lg border border-neutral-700 px-2.5 py-1 text-[11px] text-neutral-300 hover:bg-neutral-800"
+                        >
+                          <Download className="h-3 w-3" />
+                          .abc
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {scoreRequested === false ? (
+                  <p className="text-xs text-neutral-500">
+                    Fast mode was used, so no symbolic plan was generated. Choose “Plan score (ABC)” to get an editable melody.
+                  </p>
+                ) : abcScore ? (
+                  <pre className="max-h-72 overflow-auto rounded-lg border border-neutral-800 bg-neutral-950 p-3 text-[11px] leading-relaxed text-neutral-300 font-mono">
+                    {abcScore}
+                  </pre>
+                ) : (
+                  <p className="text-xs text-neutral-500">
+                    {abcLoading ? 'Loading the ABC score…' : 'No ABC score was returned for this render.'}
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </div>

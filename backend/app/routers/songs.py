@@ -13,7 +13,7 @@ from typing import AsyncGenerator, Optional
 
 import aiofiles
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 
 from app.config import settings
 from app.db import get_job
@@ -193,6 +193,18 @@ async def stream_job_events(job_id: str, request: Request):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.get("/songs/{job_id}/abc")
+async def get_song_abc(job_id: str):
+    _require_job_id(job_id)
+    job = await get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    path = settings.outputs_path / job_id / "score.abc"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="No ABC score for this job")
+    return PlainTextResponse(path.read_text(encoding="utf-8", errors="replace"), media_type="text/plain")
 
 
 @router.get("/outputs/{job_id}/audio.{extension}")
