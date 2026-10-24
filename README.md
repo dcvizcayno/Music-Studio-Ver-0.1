@@ -246,9 +246,19 @@ A sample-based **Voice Persona** is not a YuE2 feature; see
 
 ## License
 
-YuE2 model weights are **CC BY-NC 4.0 with additional creator permission**. Personal creators
-may use and monetize outputs; companies need a commercial license from the YuE2 authors.
-The mlx-Yue code is Apache-2.0. This application is a local UI and does not grant model rights.
+- **Application code:** MIT — see [LICENSE](LICENSE).
+- **Vendored abcjs:** MIT — see `frontend/public/vendor/abcjs.LICENSE`.
+- **FluidR3_GM piano samples:** CC BY 3.0 (Frank Wen / midi-js-soundfonts) —
+  attribution in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+- **YuE2 model weights:** **CC BY-NC 4.0 with additional creator permission**.
+  Personal creators may use and monetize outputs; companies need a commercial
+  license from the YuE2 authors. The weights are not included in this repository.
+- **mlx-Yue:** Apache-2.0; **demucs-onnx / htdemucs_6s:** MIT; both are external
+  and downloaded separately.
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the complete notice file.
+Model weights are not redistributed; downloading them does not grant rights beyond
+their own licenses.
 
 ## Non-goals
 

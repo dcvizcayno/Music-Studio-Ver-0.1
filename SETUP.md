@@ -259,7 +259,12 @@ from the current UI.
 
 ## 10. License
 
-YuE2 model weights are **CC BY-NC 4.0 with additional creator permission**.
-Personal creators may use and monetize outputs; companies need a commercial
-license from the YuE2 authors. The mlx-Yue code is Apache-2.0. This app does not
-grant model rights.
+- Application code: **MIT** — see [LICENSE](LICENSE).
+- abcjs: MIT; FluidR3_GM samples: CC BY 3.0; see
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+- YuE2 model weights: **CC BY-NC 4.0 with additional creator permission**.
+  Personal creators may use and monetize outputs; companies need a commercial
+  license from the YuE2 authors. The weights are not included in this repository.
+- mlx-Yue: Apache-2.0. demucs-onnx / htdemucs_6s: MIT.
+
+This repository does not grant rights to the model weights.
