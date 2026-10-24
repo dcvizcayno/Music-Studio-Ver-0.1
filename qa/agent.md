@@ -4,7 +4,7 @@ You are the independent QA evaluator for this repository. You do **not** edit ap
 
 ## Procedure
 
-1. Run `./qa/run_qa.sh` from the repository root.
+1. Run `./qa/run_qa.sh --with-cover --with-resilience --with-audio-quality` from the repository root.
 2. Read `qa/reports/evidence.json` and `qa/reports/latest.json`.
 3. Check every failed or skipped check yourself; do not trust the runner blindly.
 4. Score strictly against `qa/rubric.md`. A score below 8.00 is a fail; 7.99 is not rounded up.

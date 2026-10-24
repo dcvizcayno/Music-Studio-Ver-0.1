@@ -235,6 +235,7 @@ async def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--with-cover", action="store_true")
     parser.add_argument("--with-resilience", action="store_true")
+    parser.add_argument("--with-audio-quality", action="store_true")
     parser.add_argument("--skip-generation", action="store_true")
     parser.add_argument("--skip-build", action="store_true")
     parser.add_argument("--skip-e2e", action="store_true")
@@ -269,6 +270,29 @@ async def main() -> int:
                 else:
                     check(checks, "cover_completed", False, "skipped (use --with-cover)")
                     check(checks, "cover_audio_valid", False, "skipped (use --with-cover)")
+                if args.with_audio_quality:
+                    quality = run(
+                        [sys.executable, "qa/audio_quality.py", "--audio", str(REPORTS / "cover.flac"),
+                         "--out", str(REPORTS / "audio_quality.json")],
+                        ROOT, 180,
+                    )
+                    try:
+                        quality_data = json.loads(quality.stdout[quality.stdout.find("{"):])
+                    except Exception:
+                        quality_data = {}
+                    metrics["audio_quality"] = {
+                        "score": quality_data.get("humanization_proxy_score"),
+                        "checks": quality_data.get("checks"),
+                        "loudness": quality_data.get("loudness"),
+                    }
+                    check(
+                        checks, "audio_quality_pass",
+                        quality_data.get("humanized_proxy_pass") is True,
+                        json.dumps(quality_data.get("checks", {})),
+                    )
+                else:
+                    check(checks, "audio_quality_pass", False, "skipped (use --with-audio-quality)")
+
                 if args.with_resilience:
                     resilience = run(
                         ["node", "qa/resilience.mjs"], ROOT, 240,
@@ -290,7 +314,7 @@ async def main() -> int:
             else:
                 for name in ("generation_completed", "generation_under_limit", "audio_exists",
                              "duration_min", "sample_rate_48k", "stereo", "non_silent", "sse_terminal",
-                             "cover_completed", "cover_audio_valid", "resilience_passed"):
+                             "cover_completed", "cover_audio_valid", "audio_quality_pass", "resilience_passed"):
                     check(checks, name, False, "skipped")
     finally:
         after_swap = swap_used_mb()

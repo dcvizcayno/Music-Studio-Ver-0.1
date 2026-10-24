@@ -170,9 +170,17 @@ npm run dev        # http://127.0.0.1:3000, proxies /api to :8000
    exclusive; the chosen value replaces any male/female wording in the style tags
    and is sent directly to YuE2. The returned ABC is shown under the player and can
    be copied or downloaded as `score.abc`.
-2. **Cover Studio:** upload a reference audio file (WAV/MP3/FLAC, ≤50 MB),
-   choose the target style, confirm rights, and Generate. SheetSage2 transcribes
-   the melody; YuE2 renders a new arrangement. Voice timbre is not cloned.
+2. **Cover Studio:** upload a reference audio file (WAV/MP3/FLAC, ≤60 MB,
+   ≤6 minutes), choose the target style, confirm rights, and Generate.
+   SheetSage2 transcribes the melody; YuE2 renders a new arrangement.
+   - **Max/Beast Mode** (default on) forces 32 NAR steps and adds vocal-consistency
+     guidance.
+   - **Style Influence** maps 0–100% to YuE2 guidance (50% = neutral 1.0).
+   - **Audio Influence** maps 0–15% to reference-free generation, 20–75% to melody
+     transcription, and 80–100% to the full transcribed score.
+   - Production-only bracket tags are normalized to `[Verse]` / `[Chorus]` before
+     generation; this is the practical lyric-adherence lever, not a hard guarantee.
+   - Voice timbre is not cloned.
 3. The Library keeps completed jobs and allows export to WAV/MP3/FLAC.
 
 Only one heavy job runs at a time. Quit ComfyUI/other model apps before generating.
@@ -185,7 +193,7 @@ browser requests a Screen Wake Lock so idle sleep does not interrupt the session
 
 ```bash
 cd /path/to/default-workspace/Music_draft2
-./qa/run_qa.sh --with-cover
+./qa/run_qa.sh --with-cover --with-resilience --with-audio-quality
 ```
 
 - Runs backend pytest, frontend build, Playwright, a real 15 s text render and a

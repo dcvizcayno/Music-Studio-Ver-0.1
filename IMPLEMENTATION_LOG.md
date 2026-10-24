@@ -35,6 +35,8 @@ Replaced the simulated ComfyUI engine with a real local `mlx-Yue` engine on Appl
 - No `sudo` used.
 - ComfyUI was stopped; its models were not modified.
 - The app binds to `127.0.0.1` only.
+- Cover controls: Max/Beast Mode (32 NAR steps + vocal-consistency prompt), Style Influence (0.5–1.6 cfg_scale), Audio Influence (reference-free / melody / full-score), 60 MB upload cap, source-duration check, production-tag lyric cleanup, and a master limiter at -0.45 dBFS for clipping.
+- Sound QA: FFmpeg loudness/peak/dynamics analyzer + human listening checklist in `qa/audio_quality_agent.md`; gate check `audio_quality_pass`.
 - Interactive ABC score: vendored abcjs 6.7 + local FluidR3 piano samples; engraves the generated ABC, adds piano playback controls, copy/download, and raw-source disclosure.
 - Vocal Gender: optional Male/Female selector before Style Fusion, mutually exclusive, sent as `vocal_gender` and applied to the YuE2 style prompt after removing conflicting gender wording.
 - Text-to-song: auto duration from lyric lines + BPM using `bars × beats × 60 ÷ BPM` (toolstud.io formula), 360 s cap; Plan score / No score toggle; ABC score shown after render and served at `/api/songs/{id}/abc`.

@@ -11,7 +11,7 @@
 | Category | Weight | What it proves |
 |---|---:|---|
 | Functional | 0.30 | Health, engine readiness, a real completed generation, ABC score, vocal-gender feed, terminal SSE, idle-disconnect recovery |
-| Audio | 0.20 | A real 48 kHz stereo file, ≥ 8 s, not silent |
+| Audio | 0.20 | A real 48 kHz stereo file, ≥ 8 s, not silent, no clipping, musical dynamics (sound-quality agent) |
 | Tests | 0.15 | Backend pytest and frontend production build pass |
 | UX | 0.15 | Page loads, core tabs exist, rendered score player, no console errors, screenshot captured |
 | Performance | 0.10 | 15 s fixture completes ≤ 600 s; swap delta ≤ 2 GB |

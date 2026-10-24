@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     frontend_dist: str = str(REPO_ROOT / "frontend/dist")
 
     # Limits
-    max_upload_mb: int = 50
+    max_upload_mb: int = 60
     min_free_memory_gb: float = 3.0
     max_concurrent_heavy_jobs: int = 1
 

@@ -26,6 +26,9 @@ export const CoverSongTab: React.FC<CoverSongTabProps> = ({
   const [rights, setRights] = useState(false);
   const [steps, setSteps] = useState(8);
   const [duration, setDuration] = useState(120);
+  const [maxMode, setMaxMode] = useState(true);
+  const [styleInfluence, setStyleInfluence] = useState(50);
+  const [audioInfluence, setAudioInfluence] = useState(50);
   const [localError, setLocalError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const supported = capabilities.cover_conditioning_supported;
@@ -61,6 +64,9 @@ export const CoverSongTab: React.FC<CoverSongTabProps> = ({
     form.append('rights_acknowledged', 'true');
     form.append('steps', String(steps));
     form.append('duration_seconds', String(duration));
+    form.append('max_mode', String(maxMode));
+    form.append('style_influence', String(styleInfluence));
+    form.append('audio_influence', String(audioInfluence));
     await onGenerateCover(form);
   };
 
@@ -100,7 +106,7 @@ export const CoverSongTab: React.FC<CoverSongTabProps> = ({
         >
           <Upload className="mx-auto mb-2 h-5 w-5 text-neutral-400" />
           <div className="text-xs text-neutral-200">{file ? file.name : 'Choose or drop a WAV / MP3 / FLAC'}</div>
-          <div className="mt-1 text-[11px] text-neutral-500">Up to 50 MB · 15–300 seconds</div>
+          <div className="mt-1 text-[11px] text-neutral-500">Up to 60 MB · 15–360 seconds</div>
           <input
             ref={inputRef}
             type="file"
@@ -134,6 +140,73 @@ export const CoverSongTab: React.FC<CoverSongTabProps> = ({
             />
             <span className="mt-1 block text-right font-mono text-[10px] text-neutral-500">{styleTags.length}/1000</span>
           </label>
+        </div>
+
+        {/* Cover generation controls */}
+        <div className="space-y-4 rounded-lg border border-neutral-800 bg-neutral-950/60 p-4">
+          <label className="flex items-start gap-2.5 text-xs text-neutral-300">
+            <input
+              type="checkbox"
+              checked={maxMode}
+              onChange={(event) => setMaxMode(event.target.checked)}
+              className="mt-0.5 accent-amber-500"
+            />
+            <span>
+              <span className="font-semibold text-neutral-200">Max / Beast Mode</span>
+              <span className="ml-2 text-[10px] text-emerald-400">on by default</span>
+              <span className="mt-0.5 block text-[10px] text-neutral-500">
+                Aims for one consistent lead vocal throughout, with full-quality NAR steps and explicit vocal-consistency guidance.
+              </span>
+            </span>
+          </label>
+
+          <div>
+            <div className="flex items-center justify-between text-xs text-neutral-300">
+              <label className="font-medium">Style Influence</label>
+              <span className="font-mono tabular-nums text-amber-300">{styleInfluence}%</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={styleInfluence}
+              onChange={(event) => setStyleInfluence(Number(event.target.value))}
+              className="mt-1 w-full accent-amber-500"
+            />
+            <div className="flex justify-between text-[10px] text-neutral-500 font-mono">
+              <span>0% · free</span>
+              <span>50% · neutral</span>
+              <span>100% · strict</span>
+            </div>
+            <p className="mt-1 text-[10px] text-neutral-500">
+              How strongly YuE2 follows the genre, instruments, vocal and mood text. Maps to the AR guidance scale.
+            </p>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between text-xs text-neutral-300">
+              <label className="font-medium">Audio Influence</label>
+              <span className="font-mono tabular-nums text-amber-300">{audioInfluence}%</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={audioInfluence}
+              onChange={(event) => setAudioInfluence(Number(event.target.value))}
+              className="mt-1 w-full accent-amber-500"
+            />
+            <div className="flex justify-between text-[10px] text-neutral-500 font-mono">
+              <span>0% · reference off</span>
+              <span>50% · melody</span>
+              <span>100% · full score</span>
+            </div>
+            <p className="mt-1 text-[10px] text-neutral-500">
+              0–15% generates from lyrics/style without the reference. 20–75% keeps the transcribed melody. 80–100% uses the full transcribed score.
+            </p>
+          </div>
         </div>
 
         <label className="block text-xs text-neutral-300">

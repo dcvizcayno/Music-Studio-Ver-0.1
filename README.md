@@ -21,7 +21,10 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
   selector (fed directly to YuE2 as “male vocal” / “female vocal”), and a
   rendered, playable **Interactive ABC score** (abcjs + local FluidR3 piano
   samples, no CDN request), with copy/download of the ABC source.
-- **Cover:** reference audio → SheetSage2 melody transcription → YuE2 melody mode.
+- **Cover:** reference audio → SheetSage2 melody transcription → YuE2.
+  Includes Max/Beast Mode (vocal consistency), Style Influence and Audio Influence
+  sliders, 60 MB uploads, 6-minute covers, and production-tag cleanup so YuE2 sees
+  clean `[Verse]` / `[Chorus]` section tags. A master limiter prevents clipping.
 - **Interactive score:** generated ABC is engraved as sheet music and can be played
   with a local piano soundfont. The raw ABC remains available for copying or export.
 - **No voice cloning.** YuE2 conditions on text style and an optional ABC score. It does not
@@ -119,8 +122,12 @@ fast gate; full 60 s / 180 s renders are release tests. Do not run two heavy job
 ## QA gate
 
 ```bash
-./qa/run_qa.sh
+./qa/run_qa.sh --with-cover --with-resilience --with-audio-quality
 ```
+
+The sound-quality agent (`qa/audio_quality_agent.md`) runs FFmpeg loudness/peak/
+dynamic-range checks and a human listening checklist. It is a technical proxy,
+not a substitute for listening.
 
 The QA agent is independent: it runs checks and writes evidence, but does not edit source.
 The deterministic gate passes only at **score ≥ 8.00 / 10 with zero hard blockers**. A score of

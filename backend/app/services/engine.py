@@ -69,6 +69,67 @@ def apply_vocal_gender(style: str, gender: Optional[str]) -> str:
     return f"{cleaned}, {gender} vocal" if cleaned else f"{gender} vocal"
 
 
+
+_SECTION_RE = re.compile(r"\[([^\]]+)\]")
+_SECTION_LABELS = (
+    ("final chorus", "Final Chorus"), ("pre-chorus", "Pre-Chorus"),
+    ("post-chorus", "Post-Chorus"), ("instrumental", "Instrumental"),
+    ("chorus", "Chorus"), ("verse", "Verse"), ("bridge", "Bridge"),
+    ("intro", "Intro"), ("outro", "Outro"), ("hook", "Hook"),
+    ("refrain", "Refrain"),
+)
+
+
+def style_influence_cfg(value: int) -> float:
+    """Neutral 50% = YuE2's default cfg_scale 1.0."""
+    pct = max(0, min(100, int(value)))
+    if pct <= 50:
+        return round(0.5 + pct / 100.0, 2)
+    return round(1.0 + (pct - 50) / 50.0 * 0.6, 2)
+
+
+def prepare_cover_lyrics(lyrics: str) -> str:
+    """Normalize production-only bracket tags into YuE2 section tags.
+
+    YuE2 understands section tags such as [Verse] and [Chorus]; arbitrary
+    production notes like [Piano Intro | soft] can be read as lyric text.
+    """
+    if not lyrics:
+        return ""
+    text = lyrics.replace("\r\n", "\n").replace("\r", "\n")
+    output = []
+    for raw_line in text.split("\n"):
+        line = raw_line.strip()
+        if not line:
+            output.append("")
+            continue
+        tags = _SECTION_RE.findall(line)
+        if tags:
+            labels = []
+            for tag in tags:
+                lowered = tag.lower()
+                for needle, label in _SECTION_LABELS:
+                    if needle in lowered:
+                        if label not in labels:
+                            labels.append(label)
+                        break
+            if labels:
+                output.append(" ".join(f"[{label}]" for label in labels))
+            # Drop production-only bracket lines entirely.
+            continue
+        output.append(line)
+    cleaned = "\n".join(output)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
+def with_vocal_consistency(style: str) -> str:
+    suffix = "consistent lead vocal, same singer throughout, stable vocal timbre"
+    if suffix in style.lower():
+        return style
+    return f"{style.rstrip(' ,')}, {suffix}" if style.strip() else suffix
+
+
 _STAGE_RULES = (
     ("Verifying model files", "preparing", 3),
     ("Resolving model files", "preparing", 3),
@@ -159,7 +220,13 @@ class MlxEngine:
             return False, "Missing " + ", ".join(missing)
         return True, "mlx-Yue 8-bit ready"
 
-    def _command(self, request_path: Path, engine_dir: Path, cover_audio: Optional[Path]) -> list[str]:
+    def _command(
+        self,
+        request_path: Path,
+        engine_dir: Path,
+        cover_audio: Optional[Path],
+        cover_task: str = "melody-full",
+    ) -> list[str]:
         base = [
             str(self.binary),
             "cover" if cover_audio else "generate",
@@ -173,7 +240,7 @@ class MlxEngine:
         if cover_audio:
             base.extend([
                 "--audio", str(cover_audio),
-                "--task", "melody-full",
+                "--task", cover_task,
                 "--cache-dir", settings.hf_home,
             ])
         elif settings.mlx_offline:
@@ -186,17 +253,39 @@ class MlxEngine:
         duration = max(15, min(int(settings.mlx_max_duration), duration))
         steps = int(job.get("steps") or params.get("nar_steps") or settings.mlx_default_steps)
         steps = max(1, min(64, steps))
-        cot = "melody" if cover else str(params.get("cot") or "full")
+        audio_influence = int(params.get("audio_influence", 50))
+        style_influence = int(params.get("style_influence", 50))
+        max_mode = bool(params.get("max_mode", False))
+
+        if cover:
+            if audio_influence >= 80:
+                cot = "full"
+            elif audio_influence >= 20:
+                cot = "melody"
+            else:
+                cot = "off"
+        else:
+            cot = str(params.get("cot") or "full")
         if cot not in {"full", "melody", "off"}:
             cot = "full"
 
         style = job.get("style_tags") or params.get("style_tags") or ""
+        style = apply_vocal_gender(style, params.get("vocal_gender"))
+        if max_mode:
+            style = with_vocal_consistency(style)
+            steps = max(32, steps)
+
+        lyrics = job.get("lyrics") or ""
+        if cover and lyrics.strip():
+            lyrics = prepare_cover_lyrics(lyrics)
+
         request: dict[str, Any] = {
             "id": job["id"],
-            "style": apply_vocal_gender(style, params.get("vocal_gender")),
-            "lyrics": job.get("lyrics") or "",
+            "style": style,
+            "lyrics": lyrics,
             "cot": cot,
             "seed": int(job.get("seed") or params.get("seed") or 0),
+            "cfg_scale": style_influence_cfg(style_influence),
             "generation_config": {"ode_steps": steps},
             "semantic_sampling": {"max_tokens": max(200, min(9000, duration * 25))},
         }
@@ -218,16 +307,21 @@ class MlxEngine:
             raise EngineUnavailable(detail)
 
         job_id = job["id"]
+        params = job.get("params") or {}
+        audio_influence = int(params.get("audio_influence", 50))
+        if source_audio is not None and audio_influence < 20:
+            source_audio = None
+        cover_task = "full" if audio_influence >= 80 else "melody-full"
         job_dir = settings.outputs_path / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
         engine_dir = job_dir / "engine"
         if engine_dir.exists():
             shutil.rmtree(engine_dir)
         request_path = job_dir / "request.json"
-        request = self.build_request(job, cover=source_audio is not None)
+        request = self.build_request(job, cover=job.get("type") == "cover")
         request_path.write_text(json.dumps(request, indent=2), encoding="utf-8")
 
-        command = self._command(request_path, engine_dir, source_audio)
+        command = self._command(request_path, engine_dir, source_audio, cover_task)
         env = os.environ.copy()
         env.update({
             "PYTHONUNBUFFERED": "1",
@@ -311,6 +405,7 @@ class MlxEngine:
         final_audio = final_dir / "audio.flac"
         if audio.resolve() != final_audio.resolve():
             shutil.copy2(audio, final_audio)
+        await master_audio(final_audio)
         if abc:
             (final_dir / "score.abc").write_text(abc, encoding="utf-8")
 
@@ -343,6 +438,47 @@ class MlxEngine:
 
     async def cancel(self, job_id: str) -> None:
         await self._terminate(job_id)
+
+
+async def _peak_dbfs(path: Path) -> float:
+    proc = await asyncio.create_subprocess_exec(
+        settings.ffmpeg_bin, "-hide_banner", "-nostats", "-i", str(path),
+        "-af", "astats=metadata=1:reset=0", "-f", "null", "-",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await proc.communicate()
+    peaks = re.findall(r"Peak level dB:\s*(-?[\d.]+|-inf)", stderr.decode("utf-8", errors="replace"))
+    values = [float(p) for p in peaks if p != "-inf"]
+    return max(values, default=-99.0)
+
+
+async def master_audio(path: Path) -> bool:
+    """Apply a true-peak limiter only when the render would clip.
+
+    The MLX model can exceed 0 dBFS on dense covers. A lookahead limiter keeps
+    the musical dynamics while avoiding hard clipping and inter-sample peaks.
+    """
+    peak = await _peak_dbfs(path)
+    if peak < -0.1:
+        return False
+    target = path.with_name(f"{path.stem}.mastered{path.suffix}")
+    proc = await asyncio.create_subprocess_exec(
+        settings.ffmpeg_bin, "-y", "-hide_banner", "-loglevel", "error",
+        "-i", str(path),
+        "-af", "alimiter=limit=0.94:attack=5:release=50:level=false",
+        "-c:a", "flac", str(target),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await proc.communicate()
+    if proc.returncode != 0 or not target.exists():
+        target.unlink(missing_ok=True)
+        logger.warning("Master limiter failed: %s", stderr.decode(errors="replace")[:300])
+        return False
+    target.replace(path)
+    logger.info("Applied master limiter to %s (peak %.2f dBFS)", path.name, peak)
+    return True
 
 
 async def probe_audio(path: Path) -> tuple[float, int, int]:

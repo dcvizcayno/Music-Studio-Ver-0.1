@@ -19,6 +19,7 @@ from app.config import settings
 from app.db import get_job
 from app.schemas.songs import GenerateSongRequest
 from app.serializers import job_public
+from app.services.engine import engine, probe_audio
 from app.workers.job_queue import job_queue
 
 logger = logging.getLogger("songs_router")
@@ -94,6 +95,9 @@ async def generate_cover(
     seed: Optional[int] = Form(None),
     steps: int = Form(8),
     duration_seconds: int = Form(120, ge=15, le=360),
+    max_mode: bool = Form(True),
+    style_influence: int = Form(50, ge=0, le=100),
+    audio_influence: int = Form(50, ge=0, le=100),
     rights_acknowledged: bool = Form(False),
     audio_file: UploadFile = File(...),
 ):
@@ -114,6 +118,14 @@ async def generate_cover(
     upload_id = str(uuid.uuid4())
     target = settings.uploads_path / upload_id / f"source{suffix}"
     await _save_upload(audio_file, target)
+    try:
+        source_duration, _, _ = await probe_audio(target)
+    except Exception as exc:
+        target.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=f"Could not read reference audio: {exc}") from exc
+    if source_duration > 360:
+        target.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="Reference audio must be 6 minutes or shorter")
 
     duration = max(15, min(settings.mlx_max_duration, duration_seconds))
     steps = steps if steps in {8, 16, 32} else settings.mlx_default_steps
@@ -129,7 +141,11 @@ async def generate_cover(
         "duration_seconds": duration,
         "params": {
             "source_audio_path": str(target),
+            "source_duration_seconds": round(source_duration, 2),
             "cot": "melody",
+            "max_mode": max_mode,
+            "style_influence": style_influence,
+            "audio_influence": audio_influence,
             "nar_steps": steps,
             "duration_seconds": duration,
             "precision": settings.mlx_precision,
