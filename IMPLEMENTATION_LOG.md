@@ -22,10 +22,12 @@ Replaced the simulated ComfyUI engine with a real local `mlx-Yue` engine on Appl
 
 ## QA
 
-- `qa/run_qa.sh --with-cover`
-- Text fixture: 15 s, 8 steps, `cot=off`
-- Cover fixture: 17.6 s render from a 16 s reference
-- Final score: **10.00 / 10**, gate **PASS**
+- `qa/run_qa.sh --with-cover`, independently re-run by the QA agent
+- Text fixture: 15 s, 8 steps, `cot=off`; output 14.9987 s, generation 30.0 s
+- Cover fixture: 15 s reference → 59.9987 s cover; 95.1 s end-to-end render
+- Independent QA elapsed: 128.3 s; 26/26 checks passed, 0 skipped
+- Final score: **10.00 / 10**, gate **PASS**, commit `caeff6e`
+- Release tag: `qa-pass-10.00-caeff6e`
 
 ## Admin notes
 
