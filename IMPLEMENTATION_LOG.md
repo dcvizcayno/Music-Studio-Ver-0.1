@@ -36,7 +36,7 @@ Replaced the simulated ComfyUI engine with a real local `mlx-Yue` engine on Appl
 - ComfyUI was stopped; its models were not modified.
 - The app binds to `127.0.0.1` only.
 - Inspiration race fixed: preset initialization no longer overwrites the inspired style/BPM; completed stems preload when a Library card expands.
-- Generation resilience: VAE decode now uses 128-frame chunks (`--vae-core-frames`); on macOS memory pressure level 2, the job waits 20 s and retries twice with a "close unused Safari tabs" message instead of failing immediately.
+- Generation resilience: VAE decode now uses 128-frame chunks (`--vae-core-frames`); on macOS memory pressure level 2, the job waits 30 s and retries up to four times with a "close unused Safari tabs" message instead of failing immediately.
 - Library MIDI: Basic Pitch ONNX per pitched stem plus librosa onset/band drum MIDI; downloadable `.mid` per stem.
 - Library ABC: collapsible per-song Interactive ABC score with local abcjs piano playback, copy and download.
 - Auto-start: per-user launchd agent (`com.danielvizcayno.musicstudio`) at login with crash restart, plus `install-autostart.sh` / `uninstall-autostart.sh`; `start.sh` falls back to manual launch if bootstrap is unavailable.

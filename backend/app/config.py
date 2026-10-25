@@ -31,8 +31,8 @@ class Settings(BaseSettings):
     mlx_precision: str = "8bit"
     mlx_memory_budget_gb: float = 14.0
     mlx_vae_core_frames: int = 128
-    mlx_memory_retry_count: int = 2
-    mlx_memory_retry_delay_seconds: int = 20
+    mlx_memory_retry_count: int = 4
+    mlx_memory_retry_delay_seconds: int = 30
     mlx_max_duration: int = 360
     mlx_default_steps: int = 8
     mlx_final_steps: int = 32

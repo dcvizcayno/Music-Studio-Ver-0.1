@@ -50,7 +50,7 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
   singing-voice-conversion stage (Seed-VC). See [docs/VOICE_PERSONAS.md](docs/VOICE_PERSONAS.md).
 - **One heavy job at a time.** The MLX engine runs alone with a 14 GB budget.
   If macOS raises memory pressure (for example, many Safari tabs), the job waits
-  and retries twice instead of failing immediately.
+  and retries up to four times instead of failing immediately.
 
 ## Requirements
 
@@ -243,7 +243,7 @@ Check that the MLX weights exist under `models/`, the binary is at
 ### `System memory pressure is not normal (level=2)`
 
 macOS is under memory pressure during generation, usually from many Safari tabs
-or another memory-heavy app. The backend now retries twice after a 20 s wait and
+or another memory-heavy app. The backend now retries up to four times after a 30 s wait and
 uses 128-frame VAE chunks. If it still fails, close unused tabs/apps and retry;
 the job error includes this instruction.
 

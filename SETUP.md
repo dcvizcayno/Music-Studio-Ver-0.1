@@ -268,7 +268,7 @@ Ollama and `ollama pull qwen-fast` (or use an installed Qwen tag).
 confirm `models/basic-pitch/nmp.onnx` exists. MIDI requires completed stems.
 
 **Memory pressure during generation** — the backend uses 128-frame VAE chunks and
-retries twice. If it still fails, close unused Safari tabs/apps and retry.
+retries up to four times. If it still fails, close unused Safari tabs/apps and retry.
 
 **Voice Persona** — not available in YuE2. See
 [docs/VOICE_PERSONAS.md](docs/VOICE_PERSONAS.md); do not promise voice cloning
