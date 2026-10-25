@@ -10,12 +10,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 from pathlib import Path
 from typing import TypedDict
 
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
+
+import httpx
 
 from .memory_engine import memory_engine
 
@@ -37,17 +40,46 @@ def retrieve_memory(state: CodeState) -> CodeState:
     return {"memory": memory}
 
 
+def _deepseek_plan(objective: str, memory: str) -> str:
+    model = os.environ.get("MNEMOSYNE_PLANNER_MODEL", "deepseek-r1:14b")
+    prompt = (
+        "You are a local architecture planner. Use the user memory only when relevant.\n"
+        "Return a concise implementation plan. Do not write code.\n\n"
+        f"Memory:\n{memory}\n\nObjective:\n{objective}"
+    )
+    response = httpx.post(
+        "http://127.0.0.1:11434/api/chat",
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+            "options": {"temperature": 0.2, "num_ctx": 8192, "num_predict": 2048},
+        },
+        timeout=180,
+    )
+    response.raise_for_status()
+    return response.json().get("message", {}).get("content", "").strip()
+
+
 def plan_change(state: CodeState) -> CodeState:
     memory = state.get("memory") or "No saved preferences found."
-    plan = (
-        f"Objective: {state['objective']}\n\n"
-        f"Memory context:\n{memory}\n\n"
-        "Plan:\n"
-        "1. Inspect the relevant modules and tests.\n"
-        "2. Make the smallest change that satisfies the objective.\n"
-        "3. Run backend tests and frontend build.\n"
-        "4. Stop here for explicit approval before writing code."
-    )
+    if os.environ.get("MNEMOSYNE_PLANNER", "deterministic").lower() == "deepseek":
+        try:
+            plan = _deepseek_plan(state["objective"], memory)
+        except Exception:
+            plan = ""
+    else:
+        plan = ""
+    if not plan:
+        plan = (
+            f"Objective: {state['objective']}\n\n"
+            f"Memory context:\n{memory}\n\n"
+            "Plan:\n"
+            "1. Inspect the relevant modules and tests.\n"
+            "2. Make the smallest change that satisfies the objective.\n"
+            "3. Run backend tests and frontend build.\n"
+            "4. Stop here for explicit approval before writing code."
+        )
     return {"plan": plan, "approved": False}
 
 

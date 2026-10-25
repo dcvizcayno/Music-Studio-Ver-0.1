@@ -96,6 +96,12 @@ POST /api/memory/feedback
 - A write node that refuses to run without `approved=True`
 - Writes only to `mnemosyne/proposals/`, never application source
 
+To use the local DeepSeek planner instead of the deterministic planner:
+
+```bash
+MNEMOSYNE_PLANNER=deepseek .venv/bin/python -m mnemosyne.checkpoint_graph "Add a preference badge"
+```
+
 Run:
 
 ```bash

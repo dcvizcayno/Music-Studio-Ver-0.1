@@ -293,7 +293,8 @@ curl http://127.0.0.1:6333/healthz
 ```
 
 See [docs/MEMORY.md](docs/MEMORY.md) for architecture, LangGraph approval
-checkpoints, and limitations.
+checkpoints, and limitations. Set `MNEMOSYNE_PLANNER=deepseek` to use local
+`deepseek-r1:14b` for planning instead of the deterministic planner.
 
 ## Air-gapped operation
 
