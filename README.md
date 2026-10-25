@@ -45,6 +45,8 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
   clean `[Verse]` / `[Chorus]` section tags. A master limiter targets -1 dBFS true peak.
 - **Interactive score:** generated ABC is engraved as sheet music and can be played
   with a local piano soundfont. The raw ABC remains available for copying or export.
+- **Air-gapped runtime.** No remote fonts or CDNs; HF offline env is enforced for
+  covers and stems. See [docs/AIRGAP.md](docs/AIRGAP.md).
 - **No native voice cloning.** YuE2 conditions on text style and an optional ABC
   score; it has no speaker embedding. A sample-based Voice Persona needs a separate
   singing-voice-conversion stage (Seed-VC). See [docs/VOICE_PERSONAS.md](docs/VOICE_PERSONAS.md).
@@ -262,6 +264,20 @@ at startup. If it happens while the service is running, stop/start the studio:
 Only one heavy job may run at a time. Quit ComfyUI and other multi-GB model apps.
 A reboot clears swap left behind by earlier ComfyUI sessions (the MLX engine itself
 uses no swap when it has ~14 GB of headroom).
+
+## Air-gapped operation
+
+After the one-time model/toolchain install, the UI, API, generation, covers,
+stems, MIDI, abcjs and piano samples all run locally. Google Fonts was removed;
+the UI uses the system font stack. Cover and stem subprocesses force Hugging Face
+offline mode.
+
+```bash
+./scripts/airgap_audit.sh
+cd qa && PLAYWRIGHT_BROWSERS_PATH="$PWD/.browsers" node airgap.mjs
+```
+
+Details and the one-time network requirements: [docs/AIRGAP.md](docs/AIRGAP.md).
 
 ## Library and Inspiration
 

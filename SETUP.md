@@ -242,7 +242,21 @@ cd /path/to/default-workspace/Music_draft2
 - Reports: `qa/reports/latest.json`, `evidence.json`, `latest.flac`, `cover.flac`,
   `ui.png`.
 
-## 9. Troubleshooting
+## 9. Air-gap verification
+
+After the first model download, the runtime is designed to work without outbound
+network access. Verify:
+
+```bash
+./scripts/airgap_audit.sh
+cd qa
+PLAYWRIGHT_BROWSERS_PATH="$PWD/.browsers" node airgap.mjs
+```
+
+The browser audit must report `"external": []`. See [docs/AIRGAP.md](docs/AIRGAP.md)
+for the one-time network requirements and scope caveats.
+
+## 10. Troubleshooting
 
 **“Failed to fetch” in Cover Studio** — the backend is not running:
 ```bash
@@ -260,6 +274,10 @@ together. A reboot clears swap left by earlier ComfyUI sessions.
 **Ollama offline** — lyric drafting is optional; generation still works. Start
 Ollama and `ollama pull qwen-fast` (or use an installed Qwen tag).
 
+**Cover fails offline** — the first cover needs the SheetSage2/MERT model cached.
+Run one cover online once, then air-gapped runs can use `--offline`. If a cache is
+missing, the engine deliberately fails instead of downloading.
+
 **Stem split fails** — check `logs/backend.log`; verify
 `.venv/bin/demucs-onnx` exists and the first model download can write to
 `models/hf-cache`. CPU is intentional; CoreML was rejected by this ONNX graph.
@@ -274,7 +292,7 @@ retries up to four times. If it still fails, close unused Safari tabs/apps and r
 [docs/VOICE_PERSONAS.md](docs/VOICE_PERSONAS.md); do not promise voice cloning
 from the current UI.
 
-## 10. License
+## 11. License
 
 - Application code: **MIT** — see [LICENSE](LICENSE).
 - abcjs: MIT; FluidR3_GM samples: CC BY 3.0; see

@@ -274,6 +274,8 @@ class MlxEngine:
                 "--task", cover_task,
                 "--cache-dir", settings.hf_home,
             ])
+            if settings.mlx_offline:
+                base.append("--offline")
         elif settings.mlx_offline:
             base.append("--offline")
         return base
@@ -364,6 +366,14 @@ class MlxEngine:
             "HF_HOME": settings.hf_home,
             "PATH": f"{Path(settings.ffmpeg_bin).parent}:{env.get('PATH', '')}",
         })
+        if settings.mlx_offline:
+            env.update({
+                "HF_HUB_OFFLINE": "1",
+                "TRANSFORMERS_OFFLINE": "1",
+                "HF_DATASETS_OFFLINE": "1",
+                "HF_HUB_DISABLE_TELEMETRY": "1",
+                "DO_NOT_TRACK": "1",
+            })
         cwd = str(self.binary.resolve().parents[2])
 
         proc = await asyncio.create_subprocess_exec(

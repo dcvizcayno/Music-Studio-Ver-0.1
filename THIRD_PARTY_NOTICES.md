@@ -61,6 +61,11 @@ The following components, models, and assets have their own terms.
 - pretty_midi: MIT
 - Installed from `requirements-midi.txt`; not vendored.
 
+### Fonts
+
+The UI uses the macOS/system font stack. No Google Fonts files are bundled or
+requested at runtime.
+
 ### Qwen via Ollama
 
 - Optional lyric-drafting models are downloaded separately through Ollama and

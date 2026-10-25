@@ -78,6 +78,14 @@ async def _run(job_id: str) -> None:
         env = os.environ.copy()
         env["HF_HOME"] = settings.hf_home
         env["HF_HUB_CACHE"] = str(Path(settings.hf_home) / "hub")
+        if settings.mlx_offline:
+            env.update({
+                "HF_HUB_OFFLINE": "1",
+                "TRANSFORMERS_OFFLINE": "1",
+                "HF_DATASETS_OFFLINE": "1",
+                "HF_HUB_DISABLE_TELEMETRY": "1",
+                "DO_NOT_TRACK": "1",
+            })
         proc = await asyncio.create_subprocess_exec(
             str(settings.demucs_bin), "separate", str(source), str(tmp),
             "--model", "htdemucs_6s", "--providers", "cpu", "--small", "-q",
