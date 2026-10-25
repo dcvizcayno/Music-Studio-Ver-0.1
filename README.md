@@ -281,8 +281,9 @@ uses no swap when it has ~14 GB of headroom).
 
 The **Teach the studio** form in Library stores feedback locally in Qdrant via
 Mem0. Future Qwen prompts receive the most relevant preferences automatically;
-DeepSeek's LangGraph planning graph retrieves the same memory. Qdrant runs on
-`127.0.0.1:6333`; embeddings use local `nomic-embed-text` through Ollama.
+DeepSeek's LangGraph planning graph retrieves the same memory, and YuE receives a
+compact preference suffix in its style prompt. Qdrant runs on `127.0.0.1:6333`;
+embeddings use local `nomic-embed-text` through Ollama.
 
 ```bash
 ./scripts/install-qdrant.sh

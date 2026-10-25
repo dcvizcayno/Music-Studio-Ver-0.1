@@ -59,7 +59,7 @@ semantically.
 |---|---|---|
 | Qwen | Ollama | Lyric/style system prompt |
 | DeepSeek | Ollama | LangGraph planning/review |
-| YuE2 | mlx-Yue | Receives memory-conditioned style and lyrics from Qwen |
+| YuE2 | mlx-Yue | Receives memory-conditioned style/lyrics from Qwen plus a compact memory suffix in the YuE style prompt |
 | UI | React | Feedback capture and workflow |
 
 Prompt context is injected through `mnemosyne/prompt_hook.py`; it is trimmed to
@@ -128,7 +128,7 @@ The backend starts Qdrant automatically if it is installed but not running.
 
 - Memory retrieval is semantic, not a guarantee of relevance.
 - A 1–5 rating plus free text is intentionally simple; no automatic fine-tuning.
-- YuE does not accept a separate memory channel; it consumes memory-conditioned
-  lyrics/style from Qwen. Cover Studio remains directed by its explicit style
-  controls.
+- YuE does not accept a native memory channel; the backend appends a compact
+  preference hint (max 260 chars) to the YuE style prompt. Cover Studio is still
+  directed primarily by its explicit style controls.
 - Qdrant data is local and unencrypted at rest in `mnemosyne/qdrant/storage/`.

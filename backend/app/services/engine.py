@@ -123,6 +123,15 @@ def prepare_cover_lyrics(lyrics: str) -> str:
     return cleaned.strip()
 
 
+def with_memory_style(style: str, context: str) -> str:
+    """Append a compact, human-readable preference hint to the YuE style prompt."""
+    bullets = [line.strip()[2:].strip() for line in context.splitlines() if line.strip().startswith("- ")]
+    hint = "; ".join(bullets).strip()[:260]
+    if not hint:
+        return style
+    return f"{style.rstrip(' ,')}, user preference: {hint}" if style.strip() else f"user preference: {hint}"
+
+
 def with_vocal_consistency(style: str) -> str:
     suffix = "consistent lead vocal, same singer throughout, stable vocal timbre, sing the supplied lyrics exactly, no improvised lyrics"
     if suffix in style.lower():
@@ -304,6 +313,9 @@ class MlxEngine:
 
         style = job.get("style_tags") or params.get("style_tags") or ""
         style = apply_vocal_gender(style, params.get("vocal_gender"))
+        memory_context = str(params.get("memory_context") or "").strip()
+        if memory_context:
+            style = with_memory_style(style, memory_context)
         if max_mode:
             style = with_vocal_consistency(style)
             steps = max(32, steps)

@@ -20,6 +20,7 @@ from app.db import (
     update_job,
     update_job_progress,
 )
+from app.services import memory as memory_service
 from app.services.engine import EngineError, EngineProgress, engine
 
 logger = logging.getLogger("job_queue")
@@ -180,6 +181,13 @@ class JobQueue:
             await self._unload_ollama()
             source_audio = None
             params = job.get("params") or {}
+            memory_context = await memory_service.context(
+                f"{job.get('title') or ''} {job.get('style_tags') or ''} {job.get('lyrics') or ''}",
+                agent="yue",
+            )
+            if memory_context:
+                params["memory_context"] = memory_context
+                job["params"] = params
             if job["type"] == "cover":
                 source = params.get("source_audio_path")
                 if not source or not Path(source).exists():
