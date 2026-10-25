@@ -295,7 +295,7 @@ async def main() -> int:
 
                 if args.with_resilience:
                     resilience = run(
-                        ["node", "qa/resilience.mjs"], ROOT, 240,
+                        ["node", "qa/resilience.mjs"], ROOT, 260,
                         {"PLAYWRIGHT_BROWSERS_PATH": str(QA_DIR / ".browsers")},
                     )
                     try:

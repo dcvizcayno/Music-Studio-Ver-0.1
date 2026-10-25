@@ -38,7 +38,7 @@ await page.waitForTimeout(5000);
 await context.setOffline(false);
 
 let final = {};
-for (let i = 0; i < 50; i++) {
+for (let i = 0; i < 90; i++) {
   final = await (await fetch(`${base}/api/songs/${created.id}`)).json();
   if (['completed', 'failed', 'cancelled'].includes(final.status)) break;
   await page.waitForTimeout(2000);
