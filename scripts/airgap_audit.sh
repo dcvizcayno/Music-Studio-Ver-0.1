@@ -36,6 +36,10 @@ grep -q 'TRANSFORMERS_OFFLINE' backend/app/services/engine.py || note_fail "engi
 # 4. Cover transcription must receive --offline.
 grep -q 'base.append("--offline")' backend/app/services/engine.py || note_fail "cover --offline not wired"
 
+# 5. Memory services must disable telemetry.
+grep -q 'MEM0_TELEMETRY' mnemosyne/memory_engine.py || note_fail "Mem0 telemetry flag missing"
+grep -q 'QDRANT__TELEMETRY_DISABLED' mnemosyne/memory_engine.py || note_fail "Qdrant telemetry flag missing"
+
 if [[ $fail -ne 0 ]]; then
   echo "Air-gap static audit: FAILED" >&2
   exit 1
@@ -44,3 +48,4 @@ fi
 echo "Air-gap static audit: PASS"
 echo "Browser: no remote fonts/CDNs in served HTML or built assets."
 echo "Backend: HF_HUB_OFFLINE, TRANSFORMERS_OFFLINE, and cover --offline are wired."
+echo "Memory: Qdrant and Mem0 telemetry are disabled."
