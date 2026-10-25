@@ -36,6 +36,30 @@ class OllamaError(RuntimeError):
     pass
 
 
+def _extract_json(content: str) -> Dict[str, Any]:
+    """Parse JSON even when the local model wraps it in prose or fences."""
+    text = content.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*```$", "", text)
+    try:
+        value = json.loads(text)
+        if isinstance(value, dict):
+            return value
+    except json.JSONDecodeError:
+        pass
+
+    start = text.find("{")
+    if start >= 0:
+        try:
+            value, _ = json.JSONDecoder().raw_decode(text[start:])
+            if isinstance(value, dict):
+                return value
+        except json.JSONDecodeError:
+            pass
+    raise OllamaError("Ollama did not return a valid JSON object")
+
+
 def format_bytes(size_bytes: int) -> str:
     if size_bytes <= 0:
         return "0 MB"
@@ -118,49 +142,75 @@ class OllamaClient:
             f"Working title: {title or 'suggest an evocative title'}\n\n"
             "Return only the JSON object."
         )
-        try:
+        system_prompt = f"{SYSTEM_PROMPT}\n\n{memory_context}" if memory_context else SYSTEM_PROMPT
+
+        async def request(system: str, temperature: float) -> str:
             async with httpx.AsyncClient(timeout=float(settings.ollama_timeout_seconds)) as client:
                 response = await client.post(
                     f"{self.base_url}/api/chat",
                     json={
                         "model": selected,
                         "messages": [
-                            {"role": "system", "content": f"{SYSTEM_PROMPT}\n\n{memory_context}" if memory_context else SYSTEM_PROMPT},
+                            {"role": "system", "content": system},
                             {"role": "user", "content": user_prompt},
                         ],
                         "format": "json",
                         "stream": False,
-                        "options": {"temperature": 0.75, "top_p": 0.9},
+                        "options": {
+                            "temperature": temperature,
+                            "top_p": 0.9,
+                            "num_ctx": 8192,
+                            "num_predict": 4096,
+                        },
                     },
                 )
                 response.raise_for_status()
-                content = response.json().get("message", {}).get("content", "")
+                return response.json().get("message", {}).get("content", "")
+
+        try:
+            content = await request(system_prompt, 0.75)
         except Exception as exc:
             raise OllamaError(f"Ollama request failed: {exc}") from exc
 
         try:
-            parsed = json.loads(content)
-        except json.JSONDecodeError:
-            match = re.search(r"\{.*\}", content, re.DOTALL)
-            if not match:
-                raise OllamaError("Ollama did not return valid JSON")
-            parsed = json.loads(match.group(0))
+            parsed = _extract_json(content)
+        except OllamaError:
+            logger.warning("Ollama returned non-JSON; retrying once with a stricter prompt")
+            strict = (
+                SYSTEM_PROMPT
+                + "\n\nReturn only one JSON object. Do not add prose, markdown, or code fences.\n"
+                + (memory_context or "")
+            )
+            try:
+                content = await request(strict, 0.45)
+                parsed = _extract_json(content)
+            except Exception as exc:
+                logger.warning("Ollama JSON retry failed: %s; raw=%r", exc, content[:500])
+                raise OllamaError("Ollama did not return valid JSON") from exc
 
-        lyrics = str(parsed.get("lyrics") or "").replace("—", ", ").replace("–", "-")
+        raw_lyrics = parsed.get("lyrics") or ""
+        if isinstance(raw_lyrics, list):
+            raw_lyrics = "\n".join(str(line) for line in raw_lyrics)
+        lyrics = str(raw_lyrics).replace("—", ", ").replace("–", "-")
         found = [word for word in BANNED_WORDS if re.search(rf"\b{word}\b", lyrics, re.IGNORECASE)]
         for word in found:
             lyrics = re.sub(rf"\b{word}\b", "presence", lyrics, flags=re.IGNORECASE)
         if len(lyrics) > 3000:
             lyrics = lyrics[:2980].rsplit("\n", 1)[0] + "\n[Outro]\n..."
 
-        if not parsed.get("style_tags"):
-            parsed["style_tags"] = f"{genre or 'indie folk'}, {vocal_style or 'expressive vocal'}, 85 bpm"
+        style_tags = parsed.get("style_tags")
+        if isinstance(style_tags, list):
+            style_tags = ", ".join(str(item).strip() for item in style_tags if str(item).strip())
+        if not style_tags:
+            style_tags = f"{genre or 'indie folk'}, {vocal_style or 'expressive vocal'}, 85 bpm"
+        parsed["style_tags"] = str(style_tags)
         parsed["lyrics"] = lyrics
         parsed["title"] = parsed.get("title") or title or "Untitled Song"
         parsed["writing_note"] = parsed.get("writing_note") or "Lyrics written to the studio guide."
         parsed["genre"] = parsed.get("genre") or genre or "indie folk"
         parsed["mood"] = parsed.get("mood") or "reflective"
-        parsed["tempo_bpm"] = int(parsed.get("tempo_bpm") or 85)
+        tempo_match = re.search(r"\d+", str(parsed.get("tempo_bpm") or ""))
+        parsed["tempo_bpm"] = int(tempo_match.group(0)) if tempo_match else 85
         parsed["vocal_type"] = parsed.get("vocal_type") or vocal_style or "expressive vocal"
         parsed["character_count"] = len(lyrics)
         parsed["banned_words_found"] = found
