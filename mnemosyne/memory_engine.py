@@ -183,8 +183,16 @@ class MemoryEngine:
             logger.exception("Memory add failed")
             raise
 
+    def _has_points(self) -> bool:
+        try:
+            from qdrant_client import QdrantClient
+            info = QdrantClient(url=QDRANT_URL).get_collection(COLLECTION)
+            return bool(info.points_count)
+        except Exception:
+            return False
+
     def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
-        if not query.strip():
+        if not query.strip() or not self._has_points():
             return []
         try:
             m = self._get_memory()

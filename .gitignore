@@ -48,3 +48,5 @@ mnemosyne/checkpoints.sqlite
 mnemosyne/proposals/
 
 .qdrant-initialized
+
+qa/qa/
