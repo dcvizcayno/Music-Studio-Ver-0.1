@@ -247,6 +247,16 @@ or another memory-heavy app. The backend now retries up to four times after a 30
 uses 128-frame VAE chunks. If it still fails, close unused tabs/apps and retry;
 the job error includes this instruction.
 
+### Cover fails with `Another Lyra process owns the GPU`
+
+A previous engine process survived a backend restart and still holds Lyra's
+per-user GPU lock. The backend now reaps orphaned workspace `mlx-yue` processes
+at startup. If it happens while the service is running, stop/start the studio:
+
+```bash
+./stop.sh && ./start.sh
+```
+
 ### Generation is slow or the machine swaps
 
 Only one heavy job may run at a time. Quit ComfyUI and other multi-GB model apps.

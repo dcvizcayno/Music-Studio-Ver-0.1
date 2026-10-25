@@ -1,5 +1,6 @@
 """FastAPI entry point for the local YuE2 Song Studio."""
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -41,6 +42,7 @@ async def lifespan(app: FastAPI):
     ):
         Path(directory).mkdir(parents=True, exist_ok=True)
     await init_db()
+    await asyncio.to_thread(engine.cleanup_stale_processes)
     orphans = await mark_orphans_failed()
     if orphans:
         logger.warning("Marked %s interrupted jobs as failed", orphans)

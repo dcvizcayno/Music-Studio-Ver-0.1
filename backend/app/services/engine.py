@@ -194,6 +194,36 @@ class MlxEngine:
     def __init__(self) -> None:
         self._procs: dict[str, asyncio.subprocess.Process] = {}
 
+    def cleanup_stale_processes(self) -> int:
+        """Kill orphaned mlx-yue processes left by a backend crash/restart.
+
+        The Lyra engine uses a per-user flock for GPU ownership. If the parent
+        backend dies without reaping the child, that child keeps the lock and
+        every new cover fails with "Another Lyra process owns the GPU".
+        """
+        import psutil
+
+        killed = 0
+        outputs = str(settings.outputs_path)
+        for proc in psutil.process_iter(["pid", "cmdline"]):
+            try:
+                cmd = " ".join(proc.info.get("cmdline") or [])
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+            if "mlx-yue" not in cmd or outputs not in cmd:
+                continue
+            try:
+                logger.warning("Terminating stale mlx-yue process %s", proc.pid)
+                proc.terminate()
+                proc.wait(timeout=6)
+            except (psutil.NoSuchProcess, psutil.TimeoutExpired):
+                try:
+                    proc.kill()
+                except psutil.NoSuchProcess:
+                    pass
+            killed += 1
+        return killed
+
     @property
     def binary(self) -> Path:
         return Path(settings.mlx_yue_bin)
@@ -318,6 +348,10 @@ class MlxEngine:
         engine_dir = job_dir / "engine"
         if engine_dir.exists():
             shutil.rmtree(engine_dir)
+        # A memory-pressure retry starts a fresh engine process. The engine's
+        # resource monitor refuses to overwrite evidence from the prior attempt.
+        for evidence in ("engine.resources.jsonl", "engine.resources.json"):
+            (job_dir / evidence).unlink(missing_ok=True)
         request_path = job_dir / "request.json"
         request = self.build_request(job, cover=job.get("type") == "cover")
         request_path.write_text(json.dumps(request, indent=2), encoding="utf-8")

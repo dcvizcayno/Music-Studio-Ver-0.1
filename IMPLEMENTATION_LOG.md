@@ -36,6 +36,7 @@ Replaced the simulated ComfyUI engine with a real local `mlx-Yue` engine on Appl
 - ComfyUI was stopped; its models were not modified.
 - The app binds to `127.0.0.1` only.
 - Inspiration race fixed: preset initialization no longer overwrites the inspired style/BPM; completed stems preload when a Library card expands.
+- Cover retry fix: stale `engine.resources.jsonl` is removed before each engine attempt, and startup reaps orphaned workspace `mlx-yue` processes that hold Lyra's GPU flock after a backend crash/restart.
 - Generation resilience: VAE decode now uses 128-frame chunks (`--vae-core-frames`); on macOS memory pressure level 2, the job waits 30 s and retries up to four times with a "close unused Safari tabs" message instead of failing immediately.
 - Library MIDI: Basic Pitch ONNX per pitched stem plus librosa onset/band drum MIDI; downloadable `.mid` per stem.
 - Library ABC: collapsible per-song Interactive ABC score with local abcjs piano playback, copy and download.
