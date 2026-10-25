@@ -163,3 +163,30 @@ export async function splitStems(jobId: string): Promise<StemState> {
 export async function fetchStems(jobId: string): Promise<StemState> {
   return request<StemState>(`/jobs/${jobId}/stems`);
 }
+
+
+export interface MidiInfo {
+  id: string;
+  label: string;
+  file: string;
+  notes: number;
+  method: string;
+  bytes: number;
+}
+
+export interface MidiState {
+  status: 'idle' | 'running' | 'completed' | 'failed';
+  job_id?: string;
+  stage?: string;
+  error?: string;
+  stems: MidiInfo[];
+  notes?: string[];
+}
+
+export async function createMidi(jobId: string): Promise<MidiState> {
+  return request<MidiState>(`/jobs/${jobId}/midi`, { method: 'POST' });
+}
+
+export async function fetchMidi(jobId: string): Promise<MidiState> {
+  return request<MidiState>(`/jobs/${jobId}/midi`);
+}

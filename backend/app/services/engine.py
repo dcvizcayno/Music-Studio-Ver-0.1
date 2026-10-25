@@ -236,6 +236,7 @@ class MlxEngine:
             "--precision", settings.mlx_precision,
             "--output", str(engine_dir),
             "--memory-budget-gib", str(settings.mlx_memory_budget_gb),
+            "--vae-core-frames", str(settings.mlx_vae_core_frames),
         ]
         if cover_audio:
             base.extend([

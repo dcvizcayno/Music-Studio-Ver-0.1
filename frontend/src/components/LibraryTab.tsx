@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Play, Pause, Trash2, Copy, RefreshCw, Calendar, Music, Sparkles, Layers, Wand2, Loader2, Download } from 'lucide-react';
+import { Search, Play, Pause, Trash2, Copy, RefreshCw, Calendar, Music, Sparkles, Layers, Wand2, Loader2, Download, ChevronDown, FileMusic, Check } from 'lucide-react';
 import { Job } from '../types';
 import { AudioWaveformPlayer } from './AudioWaveformPlayer';
-import { StemState, fetchStems, splitStems } from '../services/api';
+import { AbcScorePlayer } from './AbcScorePlayer';
+import { MidiState, StemState, createMidi, fetchJobAbc, fetchMidi, fetchStems, splitStems } from '../services/api';
 
 interface LibraryTabProps {
   jobs: Job[];
@@ -23,6 +24,12 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
   const [expandedJobId, setExpandedJobId] = useState<string | null>(jobs[0]?.id || null);
   const [stemsByJob, setStemsByJob] = useState<Record<string, StemState>>({});
   const [stemBusy, setStemBusy] = useState<string | null>(null);
+  const [midiByJob, setMidiByJob] = useState<Record<string, MidiState>>({});
+  const [midiBusy, setMidiBusy] = useState<string | null>(null);
+  const [abcOpen, setAbcOpen] = useState<Record<string, boolean>>({});
+  const [abcText, setAbcText] = useState<Record<string, string>>({});
+  const [abcLoading, setAbcLoading] = useState<string | null>(null);
+  const [abcCopied, setAbcCopied] = useState<string | null>(null);
 
   useEffect(() => {
     if (!expandedJobId) return;
@@ -31,6 +38,13 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
       .then((state) => {
         if (active && state.status === 'completed') {
           setStemsByJob((prev) => ({ ...prev, [expandedJobId]: state }));
+        }
+      })
+      .catch(() => undefined);
+    fetchMidi(expandedJobId)
+      .then((state) => {
+        if (active && state.status === 'completed') {
+          setMidiByJob((prev) => ({ ...prev, [expandedJobId]: state }));
         }
       })
       .catch(() => undefined);
@@ -67,6 +81,71 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
     } finally {
       setStemBusy(null);
     }
+  };
+
+  const handleMidi = async (job: Job) => {
+    setMidiBusy(job.id);
+    try {
+      let state = await fetchMidi(job.id);
+      if (state.status !== 'completed') {
+        state = await createMidi(job.id);
+        setMidiByJob((prev) => ({ ...prev, [job.id]: state }));
+        for (let i = 0; i < 80; i += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          state = await fetchMidi(job.id);
+          setMidiByJob((prev) => ({ ...prev, [job.id]: state }));
+          if (state.status === 'completed' || state.status === 'failed') break;
+        }
+      } else {
+        setMidiByJob((prev) => ({ ...prev, [job.id]: state }));
+      }
+    } catch (err) {
+      setMidiByJob((prev) => ({
+        ...prev,
+        [job.id]: {
+          status: 'failed',
+          stems: [],
+          error: err instanceof Error ? err.message : String(err),
+        },
+      }));
+    } finally {
+      setMidiBusy(null);
+    }
+  };
+
+  const toggleAbc = async (job: Job) => {
+    const open = !abcOpen[job.id];
+    setAbcOpen((prev) => ({ ...prev, [job.id]: open }));
+    if (!open || abcText[job.id] || !job.abc_url) return;
+    setAbcLoading(job.id);
+    try {
+      const text = await fetchJobAbc(job.id);
+      setAbcText((prev) => ({ ...prev, [job.id]: text }));
+    } catch {
+      setAbcText((prev) => ({ ...prev, [job.id]: '' }));
+    } finally {
+      setAbcLoading(null);
+    }
+  };
+
+  const copyAbc = async (job: Job) => {
+    const text = abcText[job.id];
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
+    setAbcCopied(job.id);
+    setTimeout(() => setAbcCopied(null), 1500);
+  };
+
+  const downloadAbc = (job: Job) => {
+    const text = abcText[job.id];
+    if (!text) return;
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${job.title.replace(/[^a-z0-9]+/gi, '_') || 'score'}.abc`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const filteredJobs = jobs.filter((j) => {
@@ -263,6 +342,121 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
                             <p key={note} className="text-[10px] text-neutral-500">• {note}</p>
                           ))}
                         </div>
+                      </div>
+                    )}
+
+                    {stemsByJob[job.id]?.status === 'completed' && (
+                      <div className="bg-neutral-950 border border-neutral-800 rounded-lg p-3 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <span className="flex items-center gap-1.5 text-xs font-medium text-neutral-300">
+                              <FileMusic className="w-3.5 h-3.5 text-emerald-400" />
+                              MIDI from stems
+                            </span>
+                            <p className="mt-0.5 text-[10px] text-neutral-500">
+                              Basic Pitch ONNX for pitched stems · drum onset/band map
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleMidi(job)}
+                            disabled={midiBusy === job.id}
+                            className="flex items-center gap-1.5 rounded-lg border border-emerald-800/60 bg-emerald-950/40 px-2.5 py-1 text-[11px] font-medium text-emerald-200 hover:bg-emerald-900/50 disabled:opacity-50"
+                          >
+                            {midiBusy === job.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileMusic className="w-3 h-3" />}
+                            {midiBusy === job.id
+                              ? 'Transcribing…'
+                              : midiByJob[job.id]?.status === 'completed'
+                                ? 'Refresh MIDI'
+                                : 'Create MIDI'}
+                          </button>
+                        </div>
+
+                        {midiByJob[job.id]?.status === 'running' && (
+                          <p className="flex items-center gap-1.5 text-[11px] text-amber-300">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            {midiByJob[job.id].stage || 'Transcribing stems…'}
+                          </p>
+                        )}
+                        {midiByJob[job.id]?.status === 'failed' && (
+                          <p className="text-[11px] text-red-300">{midiByJob[job.id].error || 'MIDI failed'}</p>
+                        )}
+
+                        {midiByJob[job.id]?.status === 'completed' && (
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {midiByJob[job.id].stems.map((item) => (
+                              <div key={item.id} className="flex items-center justify-between gap-2 rounded-lg border border-neutral-800 bg-neutral-900 px-2.5 py-2">
+                                <div className="min-w-0">
+                                  <div className="truncate text-[11px] font-medium text-neutral-200">{item.label}</div>
+                                  <div className="text-[10px] text-neutral-500">
+                                    {item.notes} notes · {item.method}
+                                  </div>
+                                </div>
+                                <a
+                                  href={item.file}
+                                  download={`${job.title.replace(/[^a-z0-9]+/gi, '_')}-${item.id}.mid`}
+                                  className="shrink-0 text-neutral-500 hover:text-emerald-300"
+                                  title="Download MIDI"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                </a>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="space-y-1">
+                          {(midiByJob[job.id]?.notes || []).map((note) => (
+                            <p key={note} className="text-[10px] text-neutral-500">• {note}</p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {job.abc_url && (
+                      <div className="bg-neutral-950 border border-neutral-800 rounded-lg p-3">
+                        <button
+                          onClick={() => toggleAbc(job)}
+                          className="flex w-full items-center justify-between gap-3 text-left"
+                        >
+                          <span className="flex items-center gap-1.5 text-xs font-medium text-neutral-300">
+                            <Music className="w-3.5 h-3.5 text-violet-400" />
+                            Interactive ABC score
+                          </span>
+                          <ChevronDown
+                            className={`h-4 w-4 text-neutral-500 transition-transform ${abcOpen[job.id] ? 'rotate-180' : ''}`}
+                          />
+                        </button>
+
+                        {abcOpen[job.id] && (
+                          <div className="mt-3 space-y-2">
+                            {abcLoading === job.id ? (
+                              <p className="flex items-center gap-1.5 text-[11px] text-amber-300">
+                                <Loader2 className="w-3 h-3 animate-spin" /> Loading ABC…
+                              </p>
+                            ) : abcText[job.id] ? (
+                              <>
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => copyAbc(job)}
+                                    className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-white"
+                                  >
+                                    {abcCopied === job.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                    {abcCopied === job.id ? 'Copied' : 'Copy ABC'}
+                                  </button>
+                                  <button
+                                    onClick={() => downloadAbc(job)}
+                                    className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-white"
+                                  >
+                                    <Download className="w-3 h-3" /> Download .abc
+                                  </button>
+                                </div>
+                                <AbcScorePlayer abc={abcText[job.id]} />
+                              </>
+                            ) : (
+                              <p className="text-[11px] text-neutral-500">No ABC score available for this song.</p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

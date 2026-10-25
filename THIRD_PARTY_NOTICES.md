@@ -48,6 +48,19 @@ The following components, models, and assets have their own terms.
 - Model: https://huggingface.co/StemSplitio/htdemucs-6s-onnx (MIT per model card)
 - Not included in this repository; downloaded on first stem split.
 
+### Basic Pitch ONNX model
+
+- Model: https://huggingface.co/AEmotionStudio/basic-pitch-onnx-models
+- Upstream: https://github.com/spotify/basic-pitch
+- License: Apache-2.0
+- Not included in this repository; downloaded for Library MIDI.
+
+### librosa / pretty_midi
+
+- librosa: ISC
+- pretty_midi: MIT
+- Installed from `requirements-midi.txt`; not vendored.
+
 ### Qwen via Ollama
 
 - Optional lyric-drafting models are downloaded separately through Ollama and

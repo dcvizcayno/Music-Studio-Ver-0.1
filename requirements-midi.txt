@@ -1,0 +1,12 @@
+# Optional MIDI stack for Library → MIDI from stems.
+# Install basic-pitch without its TensorFlow dependency, then:
+#   uv pip install --no-deps basic-pitch==0.4.0
+#   uv pip install -r requirements-midi.txt
+setuptools<81
+librosa>=1.0
+pretty_midi>=0.2.11
+mir_eval>=0.6
+resampy<0.4.3
+scipy>=1.4
+scikit-learn
+mido

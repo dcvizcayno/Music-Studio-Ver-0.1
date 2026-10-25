@@ -14,6 +14,8 @@ The app is local-only and binds to `127.0.0.1`.
 - Ollama for lyric drafting (optional; generation works without it).
 - `demucs-onnx` (installed from `requirements.txt`) for Library stems; the
   htdemucs_6s model downloads on first use (~136 MB).
+- Optional MIDI stack (`basic-pitch` ONNX + librosa/pretty_midi) for Library
+  per-stem MIDI; see [docs/MIDI.md](docs/MIDI.md).
 
 The repository itself is small. Model weights, the MLX engine checkout, virtual
 environments, outputs, uploads and logs are intentionally not committed.
@@ -203,6 +205,13 @@ npm run dev        # http://127.0.0.1:3000, proxies /api to :8000
    kick/snare/hat and acoustic/electric-guitar sub-splits are not provided by this
    model; see [docs/STEMS.md](docs/STEMS.md).
 
+   **Create MIDI** transcribes each completed stem. Pitched stems use Basic Pitch
+   ONNX; drums use onset + spectral-band kick/snare/hi-hat. The UI shows note
+   counts and downloadable `.mid` files.
+
+   Below the MIDI panel, **Interactive ABC score** expands to the same abcjs
+   engraving/playback used in Text to Song, with copy/download.
+
    **Use as Inspiration** prefills Text to Song with the song's style/tempo for a
    brand-new melody and lyrics; it never reuses the reference audio or melody.
 4. Voice Personas/voice cloning are **not** a YuE2 feature. A real sample-based
@@ -254,6 +263,12 @@ Ollama and `ollama pull qwen-fast` (or use an installed Qwen tag).
 **Stem split fails** — check `logs/backend.log`; verify
 `.venv/bin/demucs-onnx` exists and the first model download can write to
 `models/hf-cache`. CPU is intentional; CoreML was rejected by this ONNX graph.
+
+**MIDI fails** — install the optional stack per [docs/MIDI.md](docs/MIDI.md) and
+confirm `models/basic-pitch/nmp.onnx` exists. MIDI requires completed stems.
+
+**Memory pressure during generation** — the backend uses 128-frame VAE chunks and
+retries twice. If it still fails, close unused Safari tabs/apps and retry.
 
 **Voice Persona** — not available in YuE2. See
 [docs/VOICE_PERSONAS.md](docs/VOICE_PERSONAS.md); do not promise voice cloning

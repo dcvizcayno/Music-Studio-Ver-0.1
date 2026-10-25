@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     mlx_vae_dir: str = str(WORKSPACE_ROOT / "models/YuE2-Vae")
     mlx_precision: str = "8bit"
     mlx_memory_budget_gb: float = 14.0
+    mlx_vae_core_frames: int = 128
+    mlx_memory_retry_count: int = 2
+    mlx_memory_retry_delay_seconds: int = 20
     mlx_max_duration: int = 360
     mlx_default_steps: int = 8
     mlx_final_steps: int = 32
@@ -47,6 +50,7 @@ class Settings(BaseSettings):
     ffprobe_bin: str = str(WORKSPACE_ROOT / "tools/ffmpeg/bin/ffprobe")
     hf_home: str = str(WORKSPACE_ROOT / "models/hf-cache")
     demucs_bin: str = str(REPO_ROOT / ".venv/bin/demucs-onnx")
+    basic_pitch_model: str = str(WORKSPACE_ROOT / "models/basic-pitch/nmp.onnx")
 
     # Storage
     data_dir: str = "./data"

@@ -29,6 +29,13 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
   48 kHz WAV players/downloads. Backing-vocal, kick/snare/hi-hat and
   acoustic/electric-guitar sub-splits are not provided by this model — see
   [docs/STEMS.md](docs/STEMS.md).
+- **Library MIDI:** per-stem MIDI via Basic Pitch ONNX for pitched stems, plus
+  onset/band kick-snare-hi-hat for drums. Each stem downloads as `.mid`.
+- **Library ABC:** a collapsible **Interactive ABC score** per song, matching the
+  Text to Song player (engraving, local piano playback, copy/download).
+- **Memory-pressure recovery:** VAE decode uses 128-frame chunks and a job retries
+  twice if macOS reports high memory pressure; the error tells you to close unused
+  Safari tabs/apps.
 - **Use as Inspiration:** reuse a Library song's style, tempo and instrumentation
   to generate a brand-new melody and lyrics — no audio or melody is copied. It
   opens Text to Song with style/BPM prefilled and a new-lyrics prompt.
@@ -42,6 +49,8 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
   score; it has no speaker embedding. A sample-based Voice Persona needs a separate
   singing-voice-conversion stage (Seed-VC). See [docs/VOICE_PERSONAS.md](docs/VOICE_PERSONAS.md).
 - **One heavy job at a time.** The MLX engine runs alone with a 14 GB budget.
+  If macOS raises memory pressure (for example, many Safari tabs), the job waits
+  and retries twice instead of failing immediately.
 
 ## Requirements
 
@@ -160,6 +169,7 @@ The sound-quality agent (`qa/audio_quality_agent.md`) runs FFmpeg loudness/peak/
 dynamic-range checks and a human listening checklist. `qa/integration_agent.md`
 covers Library stems, inspiration, and regressions. Neither replaces listening.
 See [docs/QA_AGENTS.md](docs/QA_AGENTS.md) for the three-agent split.
+See [docs/MIDI.md](docs/MIDI.md) for the MIDI model and accuracy limits.
 
 The QA agent is independent: it runs checks and writes evidence, but does not edit source.
 The deterministic gate passes only at **score ≥ 8.00 / 10 with zero hard blockers**. A score of
@@ -183,6 +193,9 @@ Artifacts: `qa/reports/evidence.json`, `qa/reports/latest.json`, `qa/reports/lat
 | `POST /api/jobs/{id}/stems` | start 6-stem separation |
 | `GET /api/jobs/{id}/stems` | stem status + metadata |
 | `GET /api/jobs/{id}/stems/{stem}` | one stem WAV |
+| `POST /api/jobs/{id}/midi` | start per-stem MIDI |
+| `GET /api/jobs/{id}/midi` | MIDI status + note counts |
+| `GET /api/jobs/{id}/midi/{stem}.mid` | one MIDI file |
 | `GET /api/capabilities` | live engine/Ollama state |
 | `GET /api/status` | system doctor |
 
@@ -226,6 +239,13 @@ marks it failed.
 Check that the MLX weights exist under `models/`, the binary is at
 `engines/mlx-Yue/.venv/bin/mlx-yue`, and `ffmpeg`/`ffprobe` are under
 `tools/ffmpeg/bin/`.
+
+### `System memory pressure is not normal (level=2)`
+
+macOS is under memory pressure during generation, usually from many Safari tabs
+or another memory-heavy app. The backend now retries twice after a 20 s wait and
+uses 128-frame VAE chunks. If it still fails, close unused tabs/apps and retry;
+the job error includes this instruction.
 
 ### Generation is slow or the machine swaps
 

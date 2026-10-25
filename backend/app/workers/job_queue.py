@@ -25,6 +25,11 @@ from app.services.engine import EngineError, EngineProgress, engine
 logger = logging.getLogger("job_queue")
 
 
+def _is_memory_pressure(exc: Exception) -> bool:
+    text = str(exc)
+    return "System memory pressure" in text or "MemoryError" in text
+
+
 class JobQueue:
     def __init__(self) -> None:
         self._queue: Optional[asyncio.Queue[str]] = None
@@ -188,7 +193,30 @@ class JobQueue:
                     self._event(job_id, event.stage, event.progress, event.message),
                 )
 
-            result = await engine.run(job, on_progress, source_audio=source_audio)
+            attempts = max(1, settings.mlx_memory_retry_count + 1)
+            result = None
+            for attempt in range(attempts):
+                try:
+                    result = await engine.run(job, on_progress, source_audio=source_audio)
+                    break
+                except EngineError as exc:
+                    if not _is_memory_pressure(exc):
+                        raise
+                    if attempt + 1 >= attempts:
+                        raise EngineError(
+                            f"{exc}\n\nThe Mac ran out of memory headroom. "
+                            "Close unused Safari tabs or other memory-heavy apps, then retry."
+                        ) from exc
+                    message = (
+                        "Memory pressure is high. Close unused Safari tabs/apps; "
+                        f"retrying in {settings.mlx_memory_retry_delay_seconds}s "
+                        f"({attempt + 1}/{attempts - 1})."
+                    )
+                    logger.warning("Job %s memory pressure; retry %s/%s", job_id, attempt + 1, attempts - 1)
+                    await update_job_progress(job_id, "preparing", 2, message)
+                    await self.broadcast(job_id, self._event(job_id, "preparing", 2, message))
+                    await asyncio.sleep(settings.mlx_memory_retry_delay_seconds)
+
             await update_job(
                 job_id,
                 status="completed",
