@@ -5,6 +5,7 @@ Router for Qwen prompt encoding, lyric drafting, and Lyric Style Guide configura
 from fastapi import APIRouter, HTTPException
 from app.db import get_setting, set_setting
 from app.schemas.prompt import PromptEncodeRequest, PromptEncodeResponse, LyricGuideConfig
+from app.services import memory
 from app.services.ollama_client import ollama_client
 
 router = APIRouter(prefix="/api/prompt", tags=["Prompt Encoder"])
@@ -19,6 +20,10 @@ async def encode_prompt(request: PromptEncodeRequest):
     if not request.idea.strip():
         raise HTTPException(status_code=400, detail="Song idea / premise cannot be empty.")
 
+    memory_context = await memory.context(
+        f"{request.idea} {request.genre or ''} {request.vocal_style or ''} {request.tempo or ''}",
+        agent="qwen",
+    )
     result = await ollama_client.draft_lyrics_and_style(
         idea=request.idea,
         title=request.title,
@@ -26,7 +31,8 @@ async def encode_prompt(request: PromptEncodeRequest):
         vocal_style=request.vocal_style,
         tempo=request.tempo,
         language=request.language,
-        model=request.qwen_model
+        model=request.qwen_model,
+        memory_context=memory_context,
     )
     return result
 

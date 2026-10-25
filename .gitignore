@@ -39,3 +39,12 @@ qa/reports/
 uploads/
 frontend/dist/
 *.tsbuildinfo
+mnemosyne/qdrant/bin/
+mnemosyne/qdrant/storage/
+mnemosyne/qdrant/snapshots/
+mnemosyne/mem0/
+mnemosyne/logs/
+mnemosyne/checkpoints.sqlite
+mnemosyne/proposals/
+
+.qdrant-initialized

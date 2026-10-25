@@ -3,6 +3,7 @@ import { Search, Play, Pause, Trash2, Copy, RefreshCw, Calendar, Music, Sparkles
 import { Job } from '../types';
 import { AudioWaveformPlayer } from './AudioWaveformPlayer';
 import { AbcScorePlayer } from './AbcScorePlayer';
+import { MemoryFeedback } from './MemoryFeedback';
 import { MidiState, StemState, createMidi, fetchJobAbc, fetchMidi, fetchStems, splitStems } from '../services/api';
 
 interface LibraryTabProps {
@@ -459,6 +460,8 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
                         )}
                       </div>
                     )}
+
+                    <MemoryFeedback jobId={job.id} />
                   </div>
                 )}
               </div>

@@ -190,3 +190,24 @@ export async function createMidi(jobId: string): Promise<MidiState> {
 export async function fetchMidi(jobId: string): Promise<MidiState> {
   return request<MidiState>(`/jobs/${jobId}/midi`);
 }
+
+
+export interface MemoryFeedbackPayload {
+  job_id: string;
+  rating: number;
+  notes: string;
+  tags?: string[];
+}
+
+export async function saveMemoryFeedback(payload: MemoryFeedbackPayload): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>('/memory/feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(30000),
+  });
+}
+
+export async function fetchMemoryHealth(): Promise<Record<string, unknown>> {
+  return request<Record<string, unknown>>('/memory/health');
+}

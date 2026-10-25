@@ -15,6 +15,7 @@ from app.routers import (
     audio,
     capabilities,
     library,
+    memory,
     models,
     prompt,
     settings as settings_router,
@@ -22,6 +23,7 @@ from app.routers import (
     status,
 )
 from app.services.engine import engine
+from app.services import memory as memory_service
 from app.workers.job_queue import job_queue
 
 logging.basicConfig(
@@ -43,6 +45,7 @@ async def lifespan(app: FastAPI):
         Path(directory).mkdir(parents=True, exist_ok=True)
     await init_db()
     await asyncio.to_thread(engine.cleanup_stale_processes)
+    await memory_service.ensure()
     orphans = await mark_orphans_failed()
     if orphans:
         logger.warning("Marked %s interrupted jobs as failed", orphans)
@@ -68,6 +71,7 @@ app.include_router(prompt.router)
 app.include_router(songs.router)
 app.include_router(audio.router)
 app.include_router(library.router)
+app.include_router(memory.router)
 app.include_router(status.router)
 app.include_router(settings_router.router)
 

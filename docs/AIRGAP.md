@@ -16,6 +16,7 @@ verify them.
 - Covers: local SheetSage2/MERT weights + `--offline`
 - Stems: local `demucs-onnx` + cached htdemucs_6s model
 - MIDI: local Basic Pitch ONNX + librosa
+- Memory: local Qdrant (`127.0.0.1:6333`) + Mem0 + Ollama embeddings
 - Export: local `ffmpeg`/`ffprobe`
 
 ## Fixes applied
@@ -30,6 +31,9 @@ verify them.
    - `DO_NOT_TRACK=1`
 3. Cover transcription now receives `--offline` as well as generated songs.
 4. `stems._run` sets the same HF offline/telemetry environment for demucs-onnx.
+5. Qdrant telemetry is disabled and Mem0 telemetry is disabled before import.
+6. Mem0 embeddings and LLM calls target `127.0.0.1:11434`; Qdrant targets
+   `127.0.0.1:6333`.
 
 ## One-time network requirements
 

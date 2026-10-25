@@ -16,6 +16,8 @@ The app is local-only and binds to `127.0.0.1`.
   htdemucs_6s model downloads on first use (~136 MB).
 - Optional MIDI stack (`basic-pitch` ONNX + librosa/pretty_midi) for Library
   per-stem MIDI; see [docs/MIDI.md](docs/MIDI.md).
+- Optional memory stack (`qdrant-client`, `mem0ai`, `ollama`, `langgraph`) plus
+  native Qdrant; see [docs/MEMORY.md](docs/MEMORY.md).
 
 The repository itself is small. Model weights, the MLX engine checkout, virtual
 environments, outputs, uploads and logs are intentionally not committed.
@@ -38,6 +40,10 @@ default-workspace/
 │   ├── mlx-Yue2-3B/              # AR/NAR weights
 │   ├── YuE2-Vae/                 # 48 kHz decoder
 │   └── hf-cache/                 # stem model cache (first run)
+├── mnemosyne/                    # Qdrant, Mem0, LangGraph checkpoints
+│   ├── qdrant/bin/               # native arm64 Qdrant (downloaded)
+│   ├── qdrant/storage/           # local vectors
+│   └── checkpoints.sqlite
 └── tools/
     ├── node/                     # Node 22
     └── ffmpeg/bin/               # ffmpeg + ffprobe
@@ -128,6 +134,8 @@ cp .env.example .env
 uv venv --python 3.12 .venv
 source .venv/bin/activate
 uv pip install -r requirements.txt   # includes demucs-onnx for stems
+uv pip install -r requirements-memory.txt
+./scripts/install-qdrant.sh
 
 cd frontend
 npm install
@@ -212,6 +220,10 @@ npm run dev        # http://127.0.0.1:3000, proxies /api to :8000
    Below the MIDI panel, **Interactive ABC score** expands to the same abcjs
    engraving/playback used in Text to Song, with copy/download.
 
+   **Teach the studio** stores a rating and notes in local Qdrant memory. Qwen
+   prompts retrieve relevant memories automatically; DeepSeek planning uses the
+   same memory.
+
    **Use as Inspiration** prefills Text to Song with the song's style/tempo for a
    brand-new melody and lyrics; it never reuses the reference audio or melody.
 4. Voice Personas/voice cloning are **not** a YuE2 feature. A real sample-based
@@ -281,6 +293,10 @@ missing, the engine deliberately fails instead of downloading.
 **Stem split fails** — check `logs/backend.log`; verify
 `.venv/bin/demucs-onnx` exists and the first model download can write to
 `models/hf-cache`. CPU is intentional; CoreML was rejected by this ONNX graph.
+
+**Memory/Qdrant fails** — verify `curl http://127.0.0.1:6333/healthz` and
+`./scripts/start-qdrant.sh`; check `mnemosyne/logs/qdrant.log`. The app still
+generates songs if memory is unavailable.
 
 **MIDI fails** — install the optional stack per [docs/MIDI.md](docs/MIDI.md) and
 confirm `models/basic-pitch/nmp.onnx` exists. MIDI requires completed stems.

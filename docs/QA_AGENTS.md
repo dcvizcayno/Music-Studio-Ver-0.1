@@ -23,7 +23,14 @@ blockers. A score of **7.99 fails**; the 7.99 protocol is in the rubric.
 The script reports a **humanization proxy score**, not proof that a render sounds
 human. Metrics cannot judge lyrics, pronunciation, or one-performer consistency.
 
-## 3. Integration QA
+## 3. Memory QA
+
+- Contract: [`qa/memory_agent.md`](../qa/memory_agent.md)
+- Script: `.venv/bin/python qa/memory_qa.py`
+- Focus: Qdrant health, Mem0 write/retrieval, prompt context, feedback persistence,
+  and LangGraph approval checkpoints.
+
+## 4. Integration QA
 
 - Contract: [`qa/integration_agent.md`](../qa/integration_agent.md)
 - Focus: Library stems, Use as Inspiration, and regression across Text to Song,

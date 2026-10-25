@@ -66,6 +66,14 @@ The following components, models, and assets have their own terms.
 The UI uses the macOS/system font stack. No Google Fonts files are bundled or
 requested at runtime.
 
+### Mnemosyne dependencies
+
+- Qdrant: Apache-2.0 (native binary, not vendored in git)
+- Mem0: Apache-2.0
+- nomic-embed-text: model license from its Ollama distribution
+- LangGraph: MIT
+- SQLite checkpointing: standard Python/sqlite
+
 ### Qwen via Ollama
 
 - Optional lyric-drafting models are downloaded separately through Ollama and

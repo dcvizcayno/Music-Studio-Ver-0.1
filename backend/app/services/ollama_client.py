@@ -107,6 +107,7 @@ class OllamaClient:
         tempo: Optional[str] = "moderate",
         language: str = "English",
         model: Optional[str] = None,
+        memory_context: str = "",
     ) -> Dict[str, Any]:
         selected = model or settings.default_ollama_model
         user_prompt = (
@@ -124,7 +125,7 @@ class OllamaClient:
                     json={
                         "model": selected,
                         "messages": [
-                            {"role": "system", "content": SYSTEM_PROMPT},
+                            {"role": "system", "content": f"{SYSTEM_PROMPT}\n\n{memory_context}" if memory_context else SYSTEM_PROMPT},
                             {"role": "user", "content": user_prompt},
                         ],
                         "format": "json",

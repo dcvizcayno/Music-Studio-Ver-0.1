@@ -33,6 +33,9 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
   onset/band kick-snare-hi-hat for drums. Each stem downloads as `.mid`.
 - **Library ABC:** a collapsible **Interactive ABC score** per song, matching the
   Text to Song player (engraving, local piano playback, copy/download).
+- **Mnemosyne memory:** local Qdrant + Mem0 + Ollama (`nomic-embed-text`) memory.
+  Song feedback is embedded and injected into future Qwen prompts; DeepSeek uses
+  the same memory in the LangGraph planning graph. See [docs/MEMORY.md](docs/MEMORY.md).
 - **Memory-pressure recovery:** VAE decode uses 128-frame chunks and a job retries
   twice if macOS reports high memory pressure; the error tells you to close unused
   Safari tabs/apps.
@@ -66,6 +69,8 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
 - Engine checkout under `engines/mlx-Yue/` (pinned commit + `.venv`).
 - Stem model: `htdemucs_6s` ONNX (136 MB fp16), downloaded on first stem split.
 - Python packages include `demucs-onnx`, `onnxruntime`, `soundfile`, `soxr`.
+- Optional memory stack: `qdrant-client`, `mem0ai`, `ollama`, `langgraph`
+  (`requirements-memory.txt`) and the native Qdrant arm64 binary.
 
 ## Quick start
 
@@ -124,6 +129,8 @@ Library stems):
 cd Music_draft2
 uv venv --python 3.12 .venv
 uv pip install -r requirements.txt
+uv pip install -r requirements-memory.txt
+./scripts/install-qdrant.sh
 cd frontend && npm install && npm run build && cd ..
 ```
 
@@ -170,7 +177,7 @@ jobs (generation + stem split) at once.
 The sound-quality agent (`qa/audio_quality_agent.md`) runs FFmpeg loudness/peak/
 dynamic-range checks and a human listening checklist. `qa/integration_agent.md`
 covers Library stems, inspiration, and regressions. Neither replaces listening.
-See [docs/QA_AGENTS.md](docs/QA_AGENTS.md) for the three-agent split.
+See [docs/QA_AGENTS.md](docs/QA_AGENTS.md) for the four-agent split.
 See [docs/MIDI.md](docs/MIDI.md) for the MIDI model and accuracy limits.
 
 The QA agent is independent: it runs checks and writes evidence, but does not edit source.
@@ -198,6 +205,11 @@ Artifacts: `qa/reports/evidence.json`, `qa/reports/latest.json`, `qa/reports/lat
 | `POST /api/jobs/{id}/midi` | start per-stem MIDI |
 | `GET /api/jobs/{id}/midi` | MIDI status + note counts |
 | `GET /api/jobs/{id}/midi/{stem}.mid` | one MIDI file |
+| `GET /api/memory/health` | Qdrant/Mem0 health |
+| `GET /api/memory/context?query=&agent=` | retrieved preferences |
+| `GET /api/memory` | stored memories |
+| `POST /api/memory/remember` | add a memory |
+| `POST /api/memory/feedback` | save song feedback |
 | `GET /api/capabilities` | live engine/Ollama state |
 | `GET /api/status` | system doctor |
 
@@ -264,6 +276,23 @@ at startup. If it happens while the service is running, stop/start the studio:
 Only one heavy job may run at a time. Quit ComfyUI and other multi-GB model apps.
 A reboot clears swap left behind by earlier ComfyUI sessions (the MLX engine itself
 uses no swap when it has ~14 GB of headroom).
+
+## AI memory
+
+The **Teach the studio** form in Library stores feedback locally in Qdrant via
+Mem0. Future Qwen prompts receive the most relevant preferences automatically;
+DeepSeek's LangGraph planning graph retrieves the same memory. Qdrant runs on
+`127.0.0.1:6333`; embeddings use local `nomic-embed-text` through Ollama.
+
+```bash
+./scripts/install-qdrant.sh
+./scripts/start-qdrant.sh
+curl http://127.0.0.1:6333/healthz
+.venv/bin/python qa/memory_qa.py
+```
+
+See [docs/MEMORY.md](docs/MEMORY.md) for architecture, LangGraph approval
+checkpoints, and limitations.
 
 ## Air-gapped operation
 
