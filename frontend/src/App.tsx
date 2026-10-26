@@ -175,6 +175,7 @@ export default function App() {
       setCurrentProgress(100);
       setCurrentStage('Complete');
       setActiveJob(finalJob);
+      setLastJobSnapshot((prev: any) => ({ ...(prev || {}), ...finalJob }));
       setLastJobId(id);
       const cot = String((data.params as any)?.cot || (meta as any).params?.cot || 'full');
       void loadScore(id, cot);
@@ -394,7 +395,13 @@ export default function App() {
       const job = await generateCover(form);
       setActiveJob(job);
       setLastGeneratedTitle(String(form.get('title') || 'Cover'));
-      setLastJobSnapshot({ title: form.get('title'), type: 'cover' });
+      setLastJobSnapshot({
+        title: form.get('title'),
+        type: 'cover',
+        style_tags: form.get('style_tags'),
+        duration_seconds: Number(form.get('duration_seconds') || 360),
+        created_at: new Date().toISOString(),
+      });
       setLastJobId(job.id);
       setScoreAbc(null);
       setScoreLoading(false);
@@ -554,6 +561,9 @@ export default function App() {
             isGenerating={isGenerating}
             completedAudioUrl={completedAudioUrl}
             lastGeneratedTitle={lastGeneratedTitle}
+            abcScore={scoreAbc}
+            abcUrl={lastJobId ? `/api/songs/${lastJobId}/abc` : undefined}
+            lastJobSnapshot={lastJobSnapshot}
           />
         )}
 

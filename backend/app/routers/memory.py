@@ -3,8 +3,14 @@
 from fastapi import APIRouter, HTTPException
 
 from app.db import get_job
-from app.schemas.memory import MemoryFeedbackRequest, MemoryRememberRequest
+from app.schemas.memory import (
+    MemoryFeedbackRequest,
+    MemoryRememberRequest,
+    SongSummaryRequest,
+    SongSummaryResponse,
+)
 from app.services import memory
+from app.services.ollama_client import OllamaError, ollama_client
 
 router = APIRouter(prefix="/api/memory", tags=["Memory"])
 
@@ -49,3 +55,33 @@ async def save_feedback(request: MemoryFeedbackRequest):
         return {"ok": True, "job_id": request.job_id, "memory": result}
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Memory unavailable: {exc}") from exc
+
+
+@router.post("/song-summary", response_model=SongSummaryResponse)
+async def summarize_song(request: SongSummaryRequest):
+    """Read lyrics with Qwen, save an emotional/story summary into Mnemosyne."""
+    if not (request.lyrics.strip() or request.idea.strip()):
+        raise HTTPException(status_code=400, detail="Provide lyrics or a song premise first")
+    try:
+        summary = await ollama_client.summarize_lyrics(
+            lyrics=request.lyrics,
+            title=request.title,
+            style_tags=request.style_tags,
+            idea=request.idea,
+            model=request.qwen_model,
+        )
+    except OllamaError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    saved = False
+    memory_error = None
+    try:
+        await memory.remember(
+            f"Song summary for '{request.title or 'untitled'}': {summary} "
+            f"Style: {request.style_tags[:300] or 'unknown'}.",
+            {"type": "song_summary", "title": request.title},
+        )
+        saved = True
+    except Exception as exc:
+        memory_error = str(exc)
+    return SongSummaryResponse(summary=summary, saved=saved, memory_error=memory_error)

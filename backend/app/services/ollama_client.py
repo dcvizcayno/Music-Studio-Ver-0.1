@@ -122,6 +122,49 @@ class OllamaClient:
         except Exception as exc:
             logger.info("Ollama unload skipped: %s", exc)
 
+    async def summarize_lyrics(
+        self,
+        lyrics: str,
+        title: str = "",
+        style_tags: str = "",
+        idea: str = "",
+        model: Optional[str] = None,
+    ) -> str:
+        """Read the lyrics and produce a <=500-character emotional/story summary."""
+        source = lyrics.strip() or idea.strip()
+        if not source:
+            raise OllamaError("No lyrics or premise to summarize")
+        selected = model or settings.default_ollama_model
+        prompt = (
+            "Read the song lyrics below. Write a concise summary (maximum 500 characters) "
+            "of the song's emotional feel, its central emotional anchor, and the story it tells. "
+            "Focus on what the singer feels and learns. Do not mention BPM, genre, production, "
+            "or quote lyrics. Do not add a heading; return plain text only.\n\n"
+            f"Title: {title or 'untitled'}\nStyle: {style_tags or 'unknown'}\n"
+            f"Premise: {idea or 'not provided'}\n\nLyrics:\n{source[:8000]}"
+        )
+        try:
+            async with httpx.AsyncClient(timeout=float(settings.ollama_timeout_seconds)) as client:
+                response = await client.post(
+                    f"{self.base_url}/api/chat",
+                    json={
+                        "model": selected,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "stream": False,
+                        "options": {"temperature": 0.3, "num_ctx": 8192, "num_predict": 700},
+                    },
+                )
+                response.raise_for_status()
+                text = response.json().get("message", {}).get("content", "")
+        except Exception as exc:
+            raise OllamaError(f"Ollama summary failed: {exc}") from exc
+        text = re.sub(r"\s+", " ", text).strip().strip('"')
+        if len(text) > 500:
+            text = text[:497].rsplit(" ", 1)[0].rstrip(" ,.;:") + "…"
+        if not text:
+            raise OllamaError("Ollama returned an empty summary")
+        return text
+
     async def draft_lyrics_and_style(
         self,
         idea: str,

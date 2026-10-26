@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Loader2, XCircle, ShieldAlert } from 'lucide-react';
 
 interface ActiveGenerationBannerProps {
@@ -14,6 +14,20 @@ export const ActiveGenerationBanner: React.FC<ActiveGenerationBannerProps> = ({
   onCancel,
   isCancelling
 }) => {
+  const [startedAt] = useState(() => Date.now());
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [startedAt]);
+
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = elapsed % 60;
+  const elapsedLabel = `${minutes}m ${String(seconds).padStart(2, '0')}s`;
+
   return (
     <div className="bg-neutral-900 border border-amber-500/30 rounded-xl p-4 shadow-xl">
       <div className="flex items-center justify-between gap-4 mb-2.5">
@@ -51,7 +65,11 @@ export const ActiveGenerationBanner: React.FC<ActiveGenerationBannerProps> = ({
           <ShieldAlert className="w-3 h-3 text-amber-400" />
           <span>Single-heavy-task exclusivity locked (Memory Guard)</span>
         </span>
-        <span className="font-mono">mlx-Yue progress stream</span>
+        <span className="flex items-center gap-2 font-mono">
+          <span>Elapsed ({elapsedLabel})</span>
+          <span aria-hidden="true" className="text-neutral-700">·</span>
+          <span>mlx-Yue progress stream</span>
+        </span>
       </div>
     </div>
   );

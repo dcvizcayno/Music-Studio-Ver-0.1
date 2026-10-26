@@ -1,7 +1,10 @@
 """System doctor for the MLX-backed studio."""
 
+import asyncio
 import os
+import re
 import shutil
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,6 +17,43 @@ from app.services.engine import engine
 from app.services.ollama_client import ollama_client
 
 router = APIRouter(prefix="/api/status", tags=["System Status"])
+
+
+def _gpu_percent() -> int | None:
+    """Read Apple GPU utilization without powermetrics/sudo."""
+    try:
+        out = subprocess.run(
+            ["/usr/sbin/ioreg", "-r", "-c", "AGXAccelerator", "-d", "1"],
+            capture_output=True, text=True, timeout=2,
+        ).stdout
+        match = re.search(r'"Device Utilization %"=(\d+)', out)
+        return int(match.group(1)) if match else None
+    except Exception:
+        return None
+
+
+def _cpu_percent() -> float:
+    import psutil
+    return round(psutil.cpu_percent(interval=0.12), 1)
+
+
+@router.get("/live")
+async def get_live_status():
+    """Small polling endpoint for CPU/GPU and local service readiness."""
+    cpu, gpu = await asyncio.gather(
+        asyncio.to_thread(_cpu_percent),
+        asyncio.to_thread(_gpu_percent),
+    )
+    ollama_ready = await ollama_client.check_health()
+    mlx_ready, detail = engine.availability()
+    return {
+        "cpu_percent": cpu,
+        "gpu_percent": gpu,
+        "ollama_ready": ollama_ready,
+        "mlx_ready": mlx_ready,
+        "detail": detail,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 def _check(name: str, status: str, detail: str, fix: str = "None") -> dict:

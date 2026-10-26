@@ -211,3 +211,39 @@ export async function saveMemoryFeedback(payload: MemoryFeedbackPayload): Promis
 export async function fetchMemoryHealth(): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>('/memory/health');
 }
+
+
+export interface LiveStatus {
+  cpu_percent: number | null;
+  gpu_percent: number | null;
+  ollama_ready: boolean;
+  mlx_ready: boolean;
+  detail?: string;
+  timestamp: string;
+}
+
+export async function fetchLiveStatus(): Promise<LiveStatus> {
+  return request<LiveStatus>('/status/live');
+}
+
+
+export interface SongSummaryResult {
+  summary: string;
+  saved: boolean;
+  memory_error?: string | null;
+}
+
+export async function summarizeSong(payload: {
+  title: string;
+  lyrics: string;
+  style_tags: string;
+  idea: string;
+  qwen_model?: string;
+}): Promise<SongSummaryResult> {
+  return request<SongSummaryResult>('/memory/song-summary', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(180000),
+  });
+}

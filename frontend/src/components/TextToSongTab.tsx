@@ -21,6 +21,9 @@ import { Preset } from '../types';
 import { AudioWaveformPlayer } from './AudioWaveformPlayer';
 import { AbcScorePlayer } from './AbcScorePlayer';
 import { estimateSongLength } from '../utils/songLength';
+import { summarizeSong } from '../services/api';
+import { ScoreMeta } from './ScoreMeta';
+import { parseScoreMeta } from '../utils/scoreMeta';
 
 interface TextToSongTabProps {
   presets: Preset[];
@@ -363,7 +366,7 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
 }) => {
   // 1 to 3 Styles Checkbox Selection (Default: Modern Pop)
   const [selectedPresetIds, setSelectedPresetIds] = useState<string[]>(['pop']);
-  const [vocalGender, setVocalGender] = useState<'male' | 'female' | null>(null);
+  const [vocalGender, setVocalGender] = useState<'male' | 'female' | null>('male');
 
   // Compute Initial Fused Style (Modern Pop default)
   const initialFused = fuseStyles(['pop'], presets);
@@ -375,7 +378,7 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
   const [idea, setIdea] = useState(
     'A quiet late-night realization after leaving an old apartment, finding freedom in an empty room.'
   );
-  const [songTitle, setSongTitle] = useState('Salt on the Sill');
+  const [songTitle, setSongTitle] = useState('');
   const [language, setLanguage] = useState('English');
 
   // Drafted / Editable Content (Style Tags limited to 1000 chars, Lyrics up to 5000 chars)
@@ -391,11 +394,15 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
   const [seed, setSeed] = useState<number>(42891);
   const [steps, setSteps] = useState<number>(8);
   const [cfg, setCfg] = useState<number>(1.0);
-  const [durationSeconds, setDurationSeconds] = useState<number>(initialFused.blendedDuration);
+  const [durationSeconds, setDurationSeconds] = useState<number>(360);
   const [precision, setPrecision] = useState<string>('8bit');
   const [autoDuration, setAutoDuration] = useState(false);
   const [planScore, setPlanScore] = useState(true);
   const [scoreCopied, setScoreCopied] = useState(false);
+  const [titleError, setTitleError] = useState('');
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summarySaved, setSummarySaved] = useState(false);
+  const [summaryError, setSummaryError] = useState('');
 
   const autoEstimate = estimateSongLength(lyrics, customBpm);
   useEffect(() => {
@@ -446,7 +453,6 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
       setStyleTags(fused.combinedStyleTags);
       setSteps(8);
       setCfg(fused.blendedCfg);
-      setDurationSeconds(fused.blendedDuration);
     }
   }, [presets, inspiration]);
 
@@ -534,6 +540,33 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
     setLyrics(tpl.lyrics);
   };
 
+  const handleSummarize = async () => {
+    if (!lyrics.trim() && !idea.trim()) {
+      setSummaryError('Add lyrics or a premise first.');
+      return;
+    }
+    setSummaryLoading(true);
+    setSummaryError('');
+    setSummarySaved(false);
+    try {
+      const result = await summarizeSong({
+        title: songTitle,
+        lyrics,
+        style_tags: styleTags,
+        idea,
+      });
+      setIdea(result.summary.slice(0, 500));
+      setSummarySaved(result.saved);
+      if (!result.saved && result.memory_error) {
+        setSummaryError(`Summary created, but memory save failed: ${result.memory_error}`);
+      }
+    } catch (err) {
+      setSummaryError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
   const handleDraft = async () => {
     if (!idea.trim() || isPromptLocked) return;
     const fused = currentFused;
@@ -553,8 +586,13 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
   };
 
   const handleGenerate = () => {
+    if (!songTitle.trim()) {
+      setTitleError('Working title is required before generating.');
+      return;
+    }
+    setTitleError('');
     onGenerateSong({
-      title: songTitle || 'Untitled Song',
+      title: songTitle.trim(),
       idea,
       lyrics,
       style_tags: styleTags,
@@ -567,6 +605,14 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
       vocal_gender: vocalGender
     });
   };
+
+  const scoreMeta = parseScoreMeta({
+    abc: abcScore,
+    title: lastGeneratedTitle || songTitle,
+    styleTags: lastJobSnapshot?.style_tags || styleTags,
+    createdAt: lastJobSnapshot?.created_at,
+    fallbackBpm: customBpm,
+  });
 
   const handleCopyScore = async () => {
     if (!abcScore) return;
@@ -780,17 +826,29 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
             {/* Song Premise / Emotional Idea (3 lines, max 500 chars with scrollbar if lines exceed 3) */}
             <div className="space-y-3 mb-4">
               <div>
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between gap-2 mb-1">
                   <label className="text-xs font-medium text-neutral-300">
                     Song Premise / Emotional Idea
                   </label>
-                  <span
-                    className={`text-[10px] font-mono ${
-                      idea.length >= 480 ? 'text-amber-400' : 'text-neutral-500'
-                    }`}
-                  >
-                    {idea.length} / 500 characters
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSummarize}
+                      disabled={summaryLoading || (!lyrics.trim() && !idea.trim())}
+                      className="flex items-center gap-1 rounded border border-violet-800/60 bg-violet-950/30 px-2 py-0.5 text-[10px] text-violet-200 hover:bg-violet-900/40 disabled:opacity-50"
+                      title="Read the lyrics with Qwen and save an emotional/story summary to memory"
+                    >
+                      <Sparkles className={`h-3 w-3 ${summaryLoading ? 'animate-spin' : ''}`} />
+                      {summaryLoading ? 'Summarizing…' : 'Summarize lyrics'}
+                    </button>
+                    <span
+                      className={`text-[10px] font-mono ${
+                        idea.length >= 480 ? 'text-amber-400' : 'text-neutral-500'
+                      }`}
+                    >
+                      {idea.length} / 500 characters
+                    </span>
+                  </div>
                 </div>
                 <textarea
                   value={idea}
@@ -802,19 +860,34 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-xs text-neutral-100 placeholder-neutral-600 focus:outline-none focus:border-amber-500 disabled:opacity-50 overflow-y-auto leading-relaxed resize-none"
                   placeholder="Describe what the song is about and what it felt like (up to 500 characters)..."
                 />
+                {summarySaved && (
+                  <p className="mt-1 text-[10px] text-emerald-400">
+                    Summary saved to local memory for future songs.
+                  </p>
+                )}
+                {summaryError && <p className="mt-1 text-[10px] text-red-300">{summaryError}</p>}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-neutral-300 mb-1">Working Title</label>
+                  <label className="block text-xs font-medium text-neutral-300 mb-1">
+                    Working Title <span className="text-amber-400">*</span>
+                  </label>
                   <input
                     type="text"
+                    required
                     value={songTitle}
-                    onChange={(e) => setSongTitle(e.target.value)}
+                    onChange={(e) => {
+                      setSongTitle(e.target.value);
+                      if (titleError) setTitleError('');
+                    }}
                     disabled={isPromptLocked}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500 disabled:opacity-50"
-                    placeholder="e.g. Salt on the Sill"
+                    aria-required="true"
+                    aria-invalid={Boolean(titleError)}
+                    className={`w-full bg-neutral-950 border rounded-lg px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500 disabled:opacity-50 ${titleError ? 'border-red-700' : 'border-neutral-800'}`}
+                    placeholder="Required"
                   />
+                  {titleError && <p className="mt-1 text-[10px] text-red-300">{titleError}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-neutral-300 mb-1">Language</label>
@@ -1151,6 +1224,9 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
                   </span>
                   <span>6 min</span>
                 </div>
+                <p className="mt-1.5 text-[10px] text-amber-300/80">
+                  Full song generation can take up to 6 minutes. Lower the slider for a quick sample.
+                </p>
               </div>
 
               {/* Score plan toggle */}
@@ -1213,7 +1289,7 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
             {/* Generate Song CTA Button */}
             <button
               onClick={handleGenerate}
-              disabled={isGenerating || !lyrics.trim() || !styleTags.trim()}
+              disabled={isGenerating || !lyrics.trim() || !styleTags.trim() || !songTitle.trim()}
               className="w-full mt-5 py-3 text-xs font-semibold text-neutral-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
             >
               <Music className={`w-4 h-4 ${isGenerating ? 'animate-bounce' : ''}`} />
@@ -1267,6 +1343,9 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
                       )}
                     </div>
                   )}
+                </div>
+                <div className="mb-3">
+                  <ScoreMeta meta={scoreMeta} />
                 </div>
                 {scoreRequested === false ? (
                   <p className="text-xs text-neutral-500">

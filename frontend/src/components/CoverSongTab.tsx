@@ -1,6 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { AlertCircle, Disc3, Music, ShieldCheck, Upload } from 'lucide-react';
+import { AlertCircle, Check, Copy, Disc3, Download, FileMusic, Music, ShieldCheck, Upload } from 'lucide-react';
 import { Capabilities } from '../types';
+import { AbcScorePlayer } from './AbcScorePlayer';
+import { ScoreMeta } from './ScoreMeta';
+import { parseScoreMeta } from '../utils/scoreMeta';
 
 interface CoverSongTabProps {
   capabilities: Capabilities;
@@ -8,6 +11,9 @@ interface CoverSongTabProps {
   isGenerating: boolean;
   completedAudioUrl?: string;
   lastGeneratedTitle?: string;
+  abcScore?: string | null;
+  abcUrl?: string;
+  lastJobSnapshot?: any;
 }
 
 export const CoverSongTab: React.FC<CoverSongTabProps> = ({
@@ -16,22 +22,39 @@ export const CoverSongTab: React.FC<CoverSongTabProps> = ({
   isGenerating,
   completedAudioUrl,
   lastGeneratedTitle,
+  abcScore,
+  abcUrl,
+  lastJobSnapshot,
 }) => {
   const [file, setFile] = useState<File | null>(null);
-  const [title, setTitle] = useState('Midnight Drive (Cover)');
+  const [title, setTitle] = useState('');
   const [styleTags, setStyleTags] = useState(
     'English, synthwave, warm female vocal, analog synth bass, gated drums, 108 BPM, cinematic night drive'
   );
   const [lyrics, setLyrics] = useState('');
   const [rights, setRights] = useState(false);
   const [steps, setSteps] = useState(8);
-  const [duration, setDuration] = useState(120);
+  const [duration, setDuration] = useState(360);
   const [maxMode, setMaxMode] = useState(true);
   const [styleInfluence, setStyleInfluence] = useState(50);
   const [audioInfluence, setAudioInfluence] = useState(50);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [scoreCopied, setScoreCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const supported = capabilities.cover_conditioning_supported;
+  const scoreMeta = parseScoreMeta({
+    abc: abcScore,
+    title: lastGeneratedTitle || title,
+    styleTags: lastJobSnapshot?.style_tags || styleTags,
+    createdAt: lastJobSnapshot?.created_at,
+  });
+
+  const copyScore = async () => {
+    if (!abcScore) return;
+    await navigator.clipboard.writeText(abcScore);
+    setScoreCopied(true);
+    window.setTimeout(() => setScoreCopied(false), 1500);
+  };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -239,17 +262,29 @@ export const CoverSongTab: React.FC<CoverSongTabProps> = ({
               <option value={32}>32 — final</option>
             </select>
           </label>
-          <label className="text-xs text-neutral-300">
-            Max duration (seconds)
+          <div className="text-xs text-neutral-300">
+            <div className="flex items-center justify-between">
+              <label className="font-medium" htmlFor="cover-duration">Target Duration</label>
+              <span className="font-mono tabular-nums text-amber-300">{duration} seconds</span>
+            </div>
             <input
-              type="number"
+              id="cover-duration"
+              type="range"
               min={15}
               max={360}
+              step={5}
               value={duration}
               onChange={(event) => setDuration(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-2 text-neutral-100 focus:border-amber-500 focus:outline-none"
+              className="mt-2 w-full accent-amber-500"
             />
-          </label>
+            <div className="mt-1 flex justify-between text-[10px] text-neutral-500 font-mono">
+              <span>15s</span>
+              <span>6 min</span>
+            </div>
+            <p className="mt-1 text-[10px] text-amber-300/80">
+              Full cover generation can take up to 6 minutes. Lower this slider for a quick sample.
+            </p>
+          </div>
         </div>
 
         <label className="flex items-start gap-2 text-xs text-neutral-300">
@@ -269,7 +304,7 @@ export const CoverSongTab: React.FC<CoverSongTabProps> = ({
 
         <button
           type="submit"
-          disabled={isGenerating || !supported}
+          disabled={isGenerating || !supported || !title.trim()}
           className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Music className="h-4 w-4" />
@@ -278,9 +313,58 @@ export const CoverSongTab: React.FC<CoverSongTabProps> = ({
       </form>
 
       {completedAudioUrl && (
-        <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-          <div className="mb-2 text-sm font-semibold text-neutral-100">{lastGeneratedTitle || 'Latest render'}</div>
-          <audio controls src={completedAudioUrl} className="w-full" />
+        <div className="space-y-4 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
+          <div>
+            <div className="mb-2 text-sm font-semibold text-neutral-100">{lastGeneratedTitle || 'Latest render'}</div>
+            <audio controls src={completedAudioUrl} className="w-full" />
+          </div>
+
+          <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <FileMusic className="h-4 w-4 text-amber-400" />
+                <div>
+                  <h4 className="text-sm font-semibold text-neutral-200">Interactive ABC score</h4>
+                  <p className="text-[10px] text-neutral-500">Rendered notation · piano playback · copy or download</p>
+                </div>
+              </div>
+              {abcScore && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={copyScore}
+                    className="flex items-center gap-1 rounded-lg border border-neutral-700 px-2.5 py-1 text-[11px] text-neutral-300 hover:bg-neutral-800"
+                  >
+                    {scoreCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                    {scoreCopied ? 'Copied' : 'Copy'}
+                  </button>
+                  {abcUrl && (
+                    <a
+                      href={abcUrl}
+                      download="score.abc"
+                      className="flex items-center gap-1 rounded-lg border border-neutral-700 px-2.5 py-1 text-[11px] text-neutral-300 hover:bg-neutral-800"
+                    >
+                      <Download className="h-3 w-3" /> .abc
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+            <ScoreMeta meta={scoreMeta} />
+            {abcScore ? (
+              <div className="mt-3 space-y-2">
+                <AbcScorePlayer abc={abcScore} />
+                <details className="rounded-lg border border-neutral-800 bg-neutral-950">
+                  <summary className="cursor-pointer px-3 py-2 text-[11px] text-neutral-400">View ABC source</summary>
+                  <pre className="max-h-72 overflow-auto border-t border-neutral-800 p-3 font-mono text-[11px] leading-relaxed text-neutral-300">
+                    {abcScore}
+                  </pre>
+                </details>
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-neutral-500">No ABC score was returned for this cover.</p>
+            )}
+          </div>
         </div>
       )}
     </div>

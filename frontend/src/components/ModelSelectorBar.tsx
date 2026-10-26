@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { RefreshCw, Cpu, Music2, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { RefreshCw, Cpu, Music2, AlertTriangle, Activity, Gauge } from 'lucide-react';
 import { ComfyModel, OllamaModel } from '../types';
+import { LiveStatus, fetchLiveStatus } from '../services/api';
 
 interface ModelSelectorBarProps {
   ollamaModels: OllamaModel[];
@@ -29,6 +30,25 @@ export const ModelSelectorBar: React.FC<ModelSelectorBarProps> = ({
 }) => {
   const currentOllamaObj = ollamaModels.find((m) => m.name === selectedOllama);
   const exceedsSizeWarning = currentOllamaObj?.exceeds_recommended_size || (currentOllamaObj?.parameter_size_b && currentOllamaObj.parameter_size_b > 14);
+  const [live, setLive] = useState<LiveStatus | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const poll = async () => {
+      try {
+        const next = await fetchLiveStatus();
+        if (active) setLive(next);
+      } catch {
+        // Keep the last sample; the Refresh button re-checks services.
+      }
+    };
+    void poll();
+    const timer = window.setInterval(poll, 3000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   return (
     <div className="bg-neutral-900 border-b border-neutral-800 px-6 py-3">
@@ -78,17 +98,28 @@ export const ModelSelectorBar: React.FC<ModelSelectorBarProps> = ({
           </div>
         </div>
 
-        {/* Right: Service Status and Refresh */}
-        <div className="flex items-center gap-4 text-xs">
-          {/* Ollama Status */}
+        {/* Right: Live Resources + Service Status */}
+        <div className="flex flex-wrap items-center gap-4 text-xs">
+          <div className="flex items-center gap-3 rounded-lg border border-neutral-800 bg-neutral-950 px-2.5 py-1.5 font-mono">
+            <span className="flex items-center gap-1 text-neutral-400" title="CPU usage">
+              <Activity className="w-3.5 h-3.5 text-sky-400" />
+              CPU <strong className="text-neutral-200">{live?.cpu_percent == null ? '—' : `${live.cpu_percent.toFixed(0)}%`}</strong>
+            </span>
+            <span className="h-3 w-px bg-neutral-800" />
+            <span className="flex items-center gap-1 text-neutral-400" title="Apple GPU utilization">
+              <Gauge className="w-3.5 h-3.5 text-violet-400" />
+              GPU <strong className="text-neutral-200">{live?.gpu_percent == null ? '—' : `${live.gpu_percent}%`}</strong>
+            </span>
+          </div>
+
           <div className="flex items-center gap-1.5 text-neutral-400">
-            {ollamaOnline ? (
-              <span className="text-emerald-400 font-medium">Ollama: Ready (11434)</span>
+            {(live?.ollama_ready ?? ollamaOnline) ? (
+              <span className="text-emerald-400 font-medium">Ollama: Ready</span>
             ) : (
               <span className="text-neutral-500">Ollama: Offline</span>
             )}
             <span aria-hidden="true" className="text-neutral-700">·</span>
-            {comfyOnline ? (
+            {(live?.mlx_ready ?? comfyOnline) ? (
               <span className="text-emerald-400 font-medium">MLX: Ready</span>
             ) : (
               <span className="text-neutral-500">MLX: Not ready</span>

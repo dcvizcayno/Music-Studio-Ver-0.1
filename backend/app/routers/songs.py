@@ -94,7 +94,7 @@ async def generate_cover(
     lyrics: str = Form(""),
     seed: Optional[int] = Form(None),
     steps: int = Form(8),
-    duration_seconds: int = Form(120, ge=15, le=360),
+    duration_seconds: int = Form(360, ge=15, le=360),
     max_mode: bool = Form(True),
     style_influence: int = Form(50, ge=0, le=100),
     audio_influence: int = Form(50, ge=0, le=100),

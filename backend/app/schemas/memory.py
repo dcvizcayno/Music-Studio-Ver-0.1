@@ -12,3 +12,17 @@ class MemoryFeedbackRequest(BaseModel):
 class MemoryRememberRequest(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
     metadata: Optional[dict] = None
+
+
+class SongSummaryRequest(BaseModel):
+    title: str = ""
+    lyrics: str = ""
+    style_tags: str = ""
+    idea: str = ""
+    qwen_model: Optional[str] = None
+
+
+class SongSummaryResponse(BaseModel):
+    summary: str
+    saved: bool
+    memory_error: Optional[str] = None
