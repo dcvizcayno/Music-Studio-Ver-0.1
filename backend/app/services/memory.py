@@ -53,5 +53,9 @@ async def feedback(job_id: str, rating: int, notes: str, tags: Optional[List[str
     )
 
 
+async def delete_for_job(job_id: str, title: str = "") -> int:
+    return await asyncio.to_thread(memory_engine.delete_for_job, job_id, title)
+
+
 async def all_memories(limit: int = 50) -> List[Dict[str, Any]]:
     return await asyncio.to_thread(memory_engine.all, limit)

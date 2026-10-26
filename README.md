@@ -26,7 +26,11 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
   toggle, and a rendered, playable **Interactive ABC score** (abcjs + local FluidR3 piano
   samples, no CDN request), with copy/download of the ABC source.
 - **Library navigation:** two-pane layout with a searchable left rail (title,
-  created/updated dates, version, BPM, key) and full song details on the right.
+  created/updated dates, version, BPM, key), per-song and bulk delete (including
+  associated Mnemosyne memories), and **SONG DETAILS** on the right. The style
+  field is editable; Re-run/Inspiration use the edited style. Audio exports show
+  an estimated size for the selected format, and every Interactive ABC score can
+  be downloaded as a metadata-rich PDF.
 - **Library stems:** local 6-stem split with htdemucs_6s ONNX
   (Lead Vocal, Drums, Bass, Guitar, Piano/Keyboard, Synth/Other) plus individual
   48 kHz WAV players/downloads. Backing-vocal, kick/snare/hi-hat and

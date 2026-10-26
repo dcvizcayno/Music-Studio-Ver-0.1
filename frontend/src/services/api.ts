@@ -247,3 +247,20 @@ export async function summarizeSong(payload: {
     signal: AbortSignal.timeout(180000),
   });
 }
+
+
+export interface BulkDeleteResult {
+  deleted: string[];
+  missing: string[];
+  errors: { job_id: string; error: string }[];
+  memory_removed: number;
+}
+
+export async function deleteJobs(jobIds: string[]): Promise<BulkDeleteResult> {
+  return request<BulkDeleteResult>('/jobs/bulk-delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ job_ids: jobIds }),
+    signal: AbortSignal.timeout(120000),
+  });
+}

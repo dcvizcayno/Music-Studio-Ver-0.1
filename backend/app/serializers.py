@@ -46,6 +46,9 @@ def job_public(job: Dict[str, Any]) -> Dict[str, Any]:
         "progress": job.get("progress") or 0,
         "stage_name": job.get("stage_name") or "Queued",
         "audio_url": audio_url,
+        "audio_size_bytes": (settings.outputs_path / job["id"] / "audio.flac").stat().st_size
+        if job.get("status") == "completed" and (settings.outputs_path / job["id"] / "audio.flac").exists()
+        else None,
         "abc_url": abc_url,
         "score_meta": _score_meta(settings.outputs_path / job["id"] / "score.abc")
         if job.get("status") == "completed" and (settings.outputs_path / job["id"] / "score.abc").exists()

@@ -78,7 +78,9 @@ writes a ≤500-character summary of feel, emotional anchor and story, and store
 it in Qdrant. The summary replaces the premise field so it can guide the current
 song and future prompts.
 
-The feedback/summary is embedded in Qdrant immediately. Future Qwen prompts retrieve the
+The feedback/summary is embedded in Qdrant immediately. Deleting a song from
+Library (single or bulk) removes feedback with that `job_id` and song summaries
+with the matching title from Qdrant. Future Qwen prompts retrieve the
 most relevant memories and prepend them to the system prompt. The feedback is
 also available to the DeepSeek planning graph.
 

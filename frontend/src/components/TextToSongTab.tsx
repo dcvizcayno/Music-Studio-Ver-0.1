@@ -23,6 +23,7 @@ import { AbcScorePlayer } from './AbcScorePlayer';
 import { estimateSongLength } from '../utils/songLength';
 import { summarizeSong } from '../services/api';
 import { ScoreMeta } from './ScoreMeta';
+import { ScorePdfButton } from './ScorePdfButton';
 import { parseScoreMeta } from '../utils/scoreMeta';
 
 interface TextToSongTabProps {
@@ -1308,6 +1309,7 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
               <AudioWaveformPlayer
                 audioUrl={completedAudioUrl}
                 title={lastGeneratedTitle || songTitle}
+                fileSizeBytes={lastJobSnapshot?.audio_size_bytes}
                 settingsSnapshot={lastJobSnapshot}
               />
 
@@ -1331,6 +1333,7 @@ export const TextToSongTab: React.FC<TextToSongTabProps> = ({
                         {scoreCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
                         {scoreCopied ? 'Copied' : 'Copy'}
                       </button>
+                      <ScorePdfButton abc={abcScore} meta={scoreMeta} fileName={lastGeneratedTitle || songTitle} />
                       {abcUrl && (
                         <a
                           href={abcUrl}

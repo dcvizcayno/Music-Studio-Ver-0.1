@@ -24,6 +24,7 @@ interface AudioWaveformPlayerProps {
   title: string;
   settingsSnapshot?: any;
   jobId?: string;
+  fileSizeBytes?: number | null;
 }
 
 function sanitizeFileName(name: string): string {
@@ -38,7 +39,8 @@ export const AudioWaveformPlayer: React.FC<AudioWaveformPlayerProps> = ({
   audioUrl,
   title,
   settingsSnapshot,
-  jobId: propJobId
+  jobId: propJobId,
+  fileSizeBytes
 }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -73,6 +75,23 @@ export const AudioWaveformPlayer: React.FC<AudioWaveformPlayerProps> = ({
 
   const currentFormatConfig = SUPPORTED_AUDIO_FORMATS.find((f) => f.id === selectedFormat) || SUPPORTED_AUDIO_FORMATS[0];
   const isLosslessFormat = currentFormatConfig.isLossless;
+
+  const formattedBytes = (bytes?: number | null) => {
+    if (!bytes || bytes <= 0) return '—';
+    if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  };
+  const estimatedBytes = (() => {
+    if (selectedFormat === 'flac' && fileSizeBytes) return fileSizeBytes;
+    if (!duration) return selectedFormat === 'flac' ? fileSizeBytes : null;
+    if (selectedFormat === 'wav' || selectedFormat === 'aiff') {
+      return duration * sampleRate * (bitDepth / 8) * channels;
+    }
+    if (selectedFormat === 'alac') {
+      return fileSizeBytes ? fileSizeBytes * 0.7 : null;
+    }
+    return duration * (bitrateKbps * 1000 / 8);
+  })();
 
   // Generate synthetic waveform peaks for visual presentation
   const peaks = useRef<number[]>(
@@ -337,6 +356,9 @@ export const AudioWaveformPlayer: React.FC<AudioWaveformPlayerProps> = ({
                 </>
               )}
             </button>
+            <span className="text-[10px] text-neutral-500 font-mono" title="Estimated export size for the selected format">
+              {estimatedBytes ? `${selectedFormat === 'flac' ? '' : '≈ '}${formattedBytes(estimatedBytes)}` : '—'}
+            </span>
           </div>
         </div>
 

@@ -9,7 +9,7 @@ declare global {
 
 let abcjsPromise: Promise<any> | null = null;
 
-function loadAbcjs(): Promise<any> {
+export function loadAbcjs(): Promise<any> {
   if (window.ABCJS) return Promise.resolve(window.ABCJS);
   if (!abcjsPromise) {
     abcjsPromise = new Promise((resolve, reject) => {

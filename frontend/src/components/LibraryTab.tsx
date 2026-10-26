@@ -4,11 +4,13 @@ import { Job } from '../types';
 import { AudioWaveformPlayer } from './AudioWaveformPlayer';
 import { AbcScorePlayer } from './AbcScorePlayer';
 import { MemoryFeedback } from './MemoryFeedback';
+import { ScorePdfButton } from './ScorePdfButton';
 import { MidiState, StemState, createMidi, fetchJobAbc, fetchMidi, fetchStems, splitStems } from '../services/api';
 
 interface LibraryTabProps {
   jobs: Job[];
   onDeleteJob: (id: string) => Promise<void>;
+  onDeleteJobs: (ids: string[]) => Promise<import('../services/api').BulkDeleteResult | undefined>;
   onDuplicateJob: (job: Job) => void;
   onRerunJob: (job: Job) => void;
   onUseAsInspiration: (job: Job) => void;
@@ -17,6 +19,7 @@ interface LibraryTabProps {
 export const LibraryTab: React.FC<LibraryTabProps> = ({
   jobs,
   onDeleteJob,
+  onDeleteJobs,
   onDuplicateJob,
   onRerunJob,
   onUseAsInspiration
@@ -31,6 +34,10 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
   const [abcText, setAbcText] = useState<Record<string, string>>({});
   const [abcLoading, setAbcLoading] = useState<string | null>(null);
   const [abcCopied, setAbcCopied] = useState<string | null>(null);
+  const [styleDraft, setStyleDraft] = useState('');
+  const [deleteSelection, setDeleteSelection] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [deleteNotice, setDeleteNotice] = useState('');
 
   useEffect(() => {
     if (!selectedJobId) return;
@@ -180,6 +187,68 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
   const jobKey = (job: Job) => job.score_meta?.key || '—';
   const selectedJob = filteredJobs.find((job) => job.id === selectedJobId) || null;
 
+  useEffect(() => {
+    setStyleDraft(selectedJob?.style_tags || '');
+  }, [selectedJobId, selectedJob?.style_tags]);
+
+  useEffect(() => {
+    if (selectedJobId && !jobs.some((job) => job.id === selectedJobId)) {
+      setSelectedJobId(jobs[0]?.id || null);
+    }
+  }, [jobs, selectedJobId]);
+
+  const toggleDelete = (id: string) => {
+    setDeleteSelection((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+    setDeleteNotice('');
+  };
+
+  const allFilteredSelected = filteredJobs.length > 0 && filteredJobs.every((job) => deleteSelection.has(job.id));
+
+  const toggleSelectAll = () => {
+    setDeleteSelection((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) filteredJobs.forEach((job) => next.delete(job.id));
+      else filteredJobs.forEach((job) => next.add(job.id));
+      return next;
+    });
+    setDeleteNotice('');
+  };
+
+  const deleteSelected = async () => {
+    const ids = [...deleteSelection];
+    if (!ids.length) return;
+    if (!window.confirm(`Delete ${ids.length} selected song${ids.length > 1 ? 's' : ''} and their saved memories?`)) return;
+    setBulkDeleting(true);
+    try {
+      const result = await onDeleteJobs(ids);
+      const removed = new Set([...(result?.deleted || []), ...(result?.missing || [])]);
+      setDeleteSelection((prev) => new Set([...prev].filter((id) => !removed.has(id))));
+      setDeleteNotice(`Deleted ${result?.deleted.length || 0} song(s); ${result?.memory_removed || 0} memory record(s) removed.`);
+    } catch {
+      setDeleteNotice('Delete failed. Check the backend log.');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const deleteOne = async (job: Job) => {
+    if (!window.confirm(`Delete "${job.title}" and its saved memories?`)) return;
+    setBulkDeleting(true);
+    try {
+      const result = await onDeleteJobs([job.id]);
+      setDeleteSelection((prev) => { const next = new Set(prev); next.delete(job.id); return next; });
+      setDeleteNotice(`Deleted "${job.title}"; ${result?.memory_removed || 0} memory record(s) removed.`);
+    } catch {
+      setDeleteNotice('Delete failed. Check the backend log.');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header and Search */}
@@ -218,25 +287,65 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
               <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Song Navigation</span>
               <span className="font-mono text-[10px] text-neutral-600">{filteredJobs.length}</span>
             </div>
-            <div className="max-h-[calc(100vh-250px)] space-y-2 overflow-y-auto pr-1">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-800 bg-neutral-900 px-2.5 py-2">
+              <label className="flex items-center gap-2 text-[10px] text-neutral-400">
+                <input
+                  type="checkbox"
+                  checked={allFilteredSelected}
+                  onChange={toggleSelectAll}
+                  className="accent-amber-500"
+                />
+                Select all
+              </label>
+              <button
+                type="button"
+                onClick={deleteSelected}
+                disabled={!deleteSelection.size || bulkDeleting}
+                className="flex items-center gap-1 rounded bg-red-950/50 px-2 py-1 text-[10px] font-medium text-red-200 hover:bg-red-900/60 disabled:opacity-40"
+              >
+                {bulkDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                Delete selected ({deleteSelection.size})
+              </button>
+            </div>
+            {deleteNotice && <p className="mb-2 px-1 text-[10px] text-emerald-400">{deleteNotice}</p>}
+            <div className="max-h-[calc(100vh-300px)] space-y-2 overflow-y-auto pr-1">
               {filteredJobs.map((job) => {
                 const active = job.id === selectedJobId;
                 return (
-                  <button
+                  <div
                     key={job.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setSelectedJobId(job.id)}
-                    className={`w-full rounded-xl border p-3 text-left transition-colors ${
+                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setSelectedJobId(job.id); }}
+                    className={`w-full cursor-pointer rounded-xl border p-3 text-left transition-colors ${
                       active
                         ? 'border-amber-500/60 bg-amber-500/10'
                         : 'border-neutral-800 bg-neutral-900 hover:border-neutral-700 hover:bg-neutral-900/80'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="line-clamp-2 text-xs font-semibold text-neutral-100">{job.title || 'Untitled'}</span>
+                    <div className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        checked={deleteSelection.has(job.id)}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={() => toggleDelete(job.id)}
+                        aria-label={`Select ${job.title} for deletion`}
+                        className="mt-0.5 accent-amber-500"
+                      />
+                      <span className="line-clamp-2 min-w-0 flex-1 text-xs font-semibold text-neutral-100">{job.title || 'Untitled'}</span>
                       <span className="shrink-0 rounded bg-neutral-950 px-1.5 py-0.5 font-mono text-[9px] text-neutral-400">
                         v{versionByJob.get(job.id) || 1}
                       </span>
+                      <button
+                        type="button"
+                        onClick={(event) => { event.stopPropagation(); void deleteOne(job); }}
+                        className="shrink-0 rounded p-1 text-neutral-500 hover:bg-red-950/60 hover:text-red-300"
+                        title="Delete song and memory"
+                        aria-label={`Delete ${job.title}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                     <div className="mt-1 flex items-center gap-1.5 text-[10px] text-neutral-500">
                       <span className={`h-1.5 w-1.5 rounded-full ${job.status === 'completed' ? 'bg-emerald-400' : job.status === 'failed' ? 'bg-red-400' : 'bg-amber-400'}`} />
@@ -252,7 +361,7 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
                       <span className="rounded border border-neutral-800 bg-neutral-950 px-1.5 py-0.5 text-amber-300">{jobBpm(job)} BPM</span>
                       <span className="rounded border border-neutral-800 bg-neutral-950 px-1.5 py-0.5 text-violet-300">Key {jobKey(job)}</span>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -265,6 +374,10 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
               </div>
             ) : (
             <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-400">Song Details</h3>
+                <span className="truncate text-[10px] text-neutral-500">{selectedJob.title}</span>
+              </div>
           {filteredJobs.filter((job) => job.id === selectedJobId).map((job) => {
             const isExpanded = true;
             return (
@@ -284,8 +397,6 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
                         <span>{job.type === 'cover' ? 'Cover Track' : 'Original Text-to-Song'}</span>
                         <span aria-hidden="true">·</span>
                         <span className="font-mono tabular-nums">{job.duration_seconds || 60}s</span>
-                        <span aria-hidden="true">·</span>
-                        <span className="truncate max-w-[200px]">{job.style_tags || 'Acoustic'}</span>
                       </div>
                     </div>
                   </div>
@@ -302,7 +413,7 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
                     </button>
 
                     <button
-                      onClick={() => onUseAsInspiration(job)}
+                      onClick={() => onUseAsInspiration({ ...job, style_tags: styleDraft })}
                       className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-emerald-200 hover:text-white bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-800/50 rounded-lg transition-colors"
                       title="Create a brand-new track with the same mood, tempo and instrumentation — no audio or melody copied"
                     >
@@ -321,22 +432,40 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
                     </button>
 
                     <button
-                      onClick={() => onRerunJob(job)}
+                      onClick={() => onRerunJob({ ...job, style_tags: styleDraft })}
                       className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-neutral-300 hover:text-white bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors"
-                      title="Re-run with the same settings"
+                      title="Re-run using the edited style below"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span>Re-run</span>
                     </button>
 
                     <button
-                      onClick={() => onDeleteJob(job.id)}
+                      onClick={() => void deleteOne(job)}
                       className="p-1.5 text-neutral-500 hover:text-red-400 rounded-lg hover:bg-neutral-800 transition-colors"
-                      title="Delete from Library"
+                      title="Delete from Library and memory"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
+                </div>
+
+                <div className="px-4 pb-3">
+                  <label className="mb-1 flex items-center justify-between text-[10px] text-neutral-400">
+                    <span className="font-medium">Style (editable for Re-run)</span>
+                    <span className="text-neutral-600">{styleDraft.length}/1000</span>
+                  </label>
+                  <textarea
+                    value={styleDraft}
+                    onChange={(event) => setStyleDraft(event.target.value.slice(0, 1000))}
+                    rows={2}
+                    maxLength={1000}
+                    className="w-full resize-y rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs text-neutral-200 focus:border-amber-500 focus:outline-none"
+                    placeholder="Genre, vocals, instruments, mood, tempo..."
+                  />
+                  <p className="mt-1 text-[10px] text-neutral-600">
+                    Re-run and Use as Inspiration use this edited style.
+                  </p>
                 </div>
 
                 {/* Expanded Player & Metadata */}
@@ -345,6 +474,8 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
                     <AudioWaveformPlayer
                       audioUrl={job.audio_url}
                       title={job.title}
+                      jobId={job.id}
+                      fileSizeBytes={job.audio_size_bytes}
                       settingsSnapshot={{
                         model: job.model_name,
                         qwen_model: job.qwen_model,
@@ -515,6 +646,16 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
                                     {abcCopied === job.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                                     {abcCopied === job.id ? 'Copied' : 'Copy ABC'}
                                   </button>
+                                  <ScorePdfButton
+                                    abc={abcText[job.id]}
+                                    meta={{
+                                      title: job.title,
+                                      date: formatDate(job.created_at),
+                                      bpm: jobBpm(job),
+                                      key: jobKey(job),
+                                    }}
+                                    fileName={job.title}
+                                  />
                                   <button
                                     onClick={() => downloadAbc(job)}
                                     className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-white"

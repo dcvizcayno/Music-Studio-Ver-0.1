@@ -3,6 +3,7 @@ import { AlertCircle, Check, Copy, Disc3, Download, FileMusic, Music, ShieldChec
 import { Capabilities } from '../types';
 import { AbcScorePlayer } from './AbcScorePlayer';
 import { ScoreMeta } from './ScoreMeta';
+import { ScorePdfButton } from './ScorePdfButton';
 import { parseScoreMeta } from '../utils/scoreMeta';
 
 interface CoverSongTabProps {
@@ -338,6 +339,7 @@ export const CoverSongTab: React.FC<CoverSongTabProps> = ({
                     {scoreCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
                     {scoreCopied ? 'Copied' : 'Copy'}
                   </button>
+                  <ScorePdfButton abc={abcScore} meta={scoreMeta} fileName={lastGeneratedTitle || title} />
                   {abcUrl && (
                     <a
                       href={abcUrl}

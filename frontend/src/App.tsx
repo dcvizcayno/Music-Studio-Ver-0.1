@@ -4,6 +4,7 @@ import { Capabilities, ComfyModel, Job, OllamaModel, Preset, SystemStatusData } 
 import {
   cancelJob,
   deleteJob,
+  deleteJobs,
   encodePrompt,
   fetchCapabilities,
   fetchJob,
@@ -438,6 +439,21 @@ export default function App() {
     }
   };
 
+  const handleDeleteJobs = async (ids: string[]) => {
+    if (!ids.length) return;
+    try {
+      const result = await deleteJobs(ids);
+      const removed = new Set([...result.deleted, ...result.missing]);
+      setLibraryJobs((prev) => prev.filter((job) => !removed.has(job.id)));
+      if (result.errors.length) {
+        setError(`Some songs could not be deleted: ${result.errors.map((e) => e.error).join('; ')}`);
+      }
+      return result;
+    } catch (err) {
+      setError(errorText(err));
+    }
+  };
+
   const handleDuplicateJob = (_job: Job) => setActiveTab('text_to_song');
 
   const handleUseAsInspiration = (job: Job) => {
@@ -571,6 +587,7 @@ export default function App() {
           <LibraryTab
             jobs={libraryJobs}
             onDeleteJob={handleDeleteJob}
+            onDeleteJobs={handleDeleteJobs}
             onDuplicateJob={handleDuplicateJob}
             onRerunJob={handleRerunJob}
             onUseAsInspiration={handleUseAsInspiration}

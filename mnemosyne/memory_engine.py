@@ -218,6 +218,27 @@ class MemoryEngine:
             self._last_error = str(exc)
             return []
 
+    def delete_for_job(self, job_id: str, title: str = "") -> int:
+        """Remove feedback and song summaries associated with a deleted job."""
+        removed = 0
+        try:
+            m = self._get_memory()
+            items = m.get_all(filters={"user_id": USER_ID}, top_k=200).get("results", [])
+            for item in items:
+                metadata = item.get("metadata") or {}
+                same_job = metadata.get("job_id") == job_id
+                same_summary = (
+                    metadata.get("type") == "song_summary"
+                    and title
+                    and str(metadata.get("title") or "").strip() == title.strip()
+                )
+                if same_job or same_summary:
+                    m.delete(item["id"])
+                    removed += 1
+        except Exception as exc:
+            logger.warning("Memory cleanup failed for %s: %s", job_id, exc)
+        return removed
+
     def feedback(self, job_id: str, rating: int, notes: str, tags: Optional[List[str]] = None,
                  title: str = "", style_tags: str = "") -> Dict[str, Any]:
         rating = max(1, min(5, int(rating)))

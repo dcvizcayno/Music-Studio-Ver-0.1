@@ -50,3 +50,5 @@ mnemosyne/proposals/
 .qdrant-initialized
 
 qa/qa/
+
+frontend/.npm-cache/
