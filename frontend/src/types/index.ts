@@ -77,6 +77,7 @@ export interface Job {
   stage_name: string;
   audio_url?: string;
   abc_url?: string;
+  score_meta?: { title?: string | null; key?: string | null; bpm?: string | null } | null;
   error_message?: string;
   workflow_snapshot?: any;
   created_at: string;

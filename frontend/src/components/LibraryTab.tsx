@@ -22,7 +22,7 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
   onUseAsInspiration
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedJobId, setExpandedJobId] = useState<string | null>(jobs[0]?.id || null);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(jobs[0]?.id || null);
   const [stemsByJob, setStemsByJob] = useState<Record<string, StemState>>({});
   const [stemBusy, setStemBusy] = useState<string | null>(null);
   const [midiByJob, setMidiByJob] = useState<Record<string, MidiState>>({});
@@ -33,26 +33,26 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
   const [abcCopied, setAbcCopied] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!expandedJobId) return;
+    if (!selectedJobId) return;
     let active = true;
-    fetchStems(expandedJobId)
+    fetchStems(selectedJobId)
       .then((state) => {
         if (active && state.status === 'completed') {
-          setStemsByJob((prev) => ({ ...prev, [expandedJobId]: state }));
+          setStemsByJob((prev) => ({ ...prev, [selectedJobId]: state }));
         }
       })
       .catch(() => undefined);
-    fetchMidi(expandedJobId)
+    fetchMidi(selectedJobId)
       .then((state) => {
         if (active && state.status === 'completed') {
-          setMidiByJob((prev) => ({ ...prev, [expandedJobId]: state }));
+          setMidiByJob((prev) => ({ ...prev, [selectedJobId]: state }));
         }
       })
       .catch(() => undefined);
     return () => {
       active = false;
     };
-  }, [expandedJobId]);
+  }, [selectedJobId]);
 
   const handleStems = async (job: Job) => {
     setStemBusy(job.id);
@@ -158,6 +158,28 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
     );
   });
 
+  const versionByJob = new Map<string, number>();
+  const titleCounts = new Map<string, number>();
+  [...jobs]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .forEach((job) => {
+      const key = (job.title || 'untitled').trim().toLowerCase();
+      const next = (titleCounts.get(key) || 0) + 1;
+      titleCounts.set(key, next);
+      versionByJob.set(job.id, next);
+    });
+
+  const formatDate = (value?: string) => {
+    if (!value) return '—';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? '—'
+      : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+  const jobBpm = (job: Job) => job.score_meta?.bpm || job.style_tags?.match(/(\d{2,3})\s*bpm/i)?.[1] || '—';
+  const jobKey = (job: Job) => job.score_meta?.key || '—';
+  const selectedJob = filteredJobs.find((job) => job.id === selectedJobId) || null;
+
   return (
     <div className="space-y-6">
       {/* Header and Search */}
@@ -190,9 +212,61 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredJobs.map((job) => {
-            const isExpanded = expandedJobId === job.id;
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(280px,1fr)_minmax(0,2.6fr)]">
+          <aside className="min-w-0">
+            <div className="mb-2 flex items-center justify-between px-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Song Navigation</span>
+              <span className="font-mono text-[10px] text-neutral-600">{filteredJobs.length}</span>
+            </div>
+            <div className="max-h-[calc(100vh-250px)] space-y-2 overflow-y-auto pr-1">
+              {filteredJobs.map((job) => {
+                const active = job.id === selectedJobId;
+                return (
+                  <button
+                    key={job.id}
+                    type="button"
+                    onClick={() => setSelectedJobId(job.id)}
+                    className={`w-full rounded-xl border p-3 text-left transition-colors ${
+                      active
+                        ? 'border-amber-500/60 bg-amber-500/10'
+                        : 'border-neutral-800 bg-neutral-900 hover:border-neutral-700 hover:bg-neutral-900/80'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="line-clamp-2 text-xs font-semibold text-neutral-100">{job.title || 'Untitled'}</span>
+                      <span className="shrink-0 rounded bg-neutral-950 px-1.5 py-0.5 font-mono text-[9px] text-neutral-400">
+                        v{versionByJob.get(job.id) || 1}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-1.5 text-[10px] text-neutral-500">
+                      <span className={`h-1.5 w-1.5 rounded-full ${job.status === 'completed' ? 'bg-emerald-400' : job.status === 'failed' ? 'bg-red-400' : 'bg-amber-400'}`} />
+                      <span>{job.type === 'cover' ? 'Cover' : 'Text to Song'}</span>
+                      <span aria-hidden="true">·</span>
+                      <span>{job.status}</span>
+                    </div>
+                    <div className="mt-2 space-y-0.5 text-[10px] text-neutral-500">
+                      <div><span className="text-neutral-600">Created</span> {formatDate(job.created_at)}</div>
+                      <div><span className="text-neutral-600">Updated</span> {formatDate(job.updated_at)}</div>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 font-mono text-[10px]">
+                      <span className="rounded border border-neutral-800 bg-neutral-950 px-1.5 py-0.5 text-amber-300">{jobBpm(job)} BPM</span>
+                      <span className="rounded border border-neutral-800 bg-neutral-950 px-1.5 py-0.5 text-violet-300">Key {jobKey(job)}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+
+          <section className="min-w-0">
+            {!selectedJob ? (
+              <div className="rounded-xl border border-dashed border-neutral-800 bg-neutral-900 p-10 text-center text-xs text-neutral-500">
+                Select a song from the navigation list.
+              </div>
+            ) : (
+            <div className="space-y-4">
+          {filteredJobs.filter((job) => job.id === selectedJobId).map((job) => {
+            const isExpanded = true;
             return (
               <div
                 key={job.id}
@@ -200,10 +274,7 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
               >
                 {/* Summary Strip */}
                 <div className="p-4 flex flex-wrap items-center justify-between gap-4">
-                  <div
-                    onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
-                    className="flex items-center gap-3 cursor-pointer min-w-0"
-                  >
+                  <div className="flex items-center gap-3 min-w-0">
                     <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
                       <Music className="w-4 h-4 text-amber-400" />
                     </div>
@@ -467,6 +538,9 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
               </div>
             );
           })}
+            </div>
+            )}
+          </section>
         </div>
       )}
     </div>

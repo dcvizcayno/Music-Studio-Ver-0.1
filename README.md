@@ -25,6 +25,8 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
   that saves an emotional/story summary to memory, a **Plan score / No score**
   toggle, and a rendered, playable **Interactive ABC score** (abcjs + local FluidR3 piano
   samples, no CDN request), with copy/download of the ABC source.
+- **Library navigation:** two-pane layout with a searchable left rail (title,
+  created/updated dates, version, BPM, key) and full song details on the right.
 - **Library stems:** local 6-stem split with htdemucs_6s ONNX
   (Lead Vocal, Drums, Bass, Guitar, Piano/Keyboard, Synth/Other) plus individual
   48 kHz WAV players/downloads. Backing-vocal, kick/snare/hi-hat and
