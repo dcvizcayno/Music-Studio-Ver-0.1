@@ -73,7 +73,12 @@ After a song completes, expand it in **Library** and use **Teach the studio**:
 2. Add notes such as “keep choruses shorter” or “less reverb.”
 3. Save.
 
-The feedback is embedded in Qdrant immediately. Future Qwen prompts retrieve the
+Text to Song also has **Summarize lyrics**, which reads the lyrics with Qwen,
+writes a ≤500-character summary of feel, emotional anchor and story, and stores
+it in Qdrant. The summary replaces the premise field so it can guide the current
+song and future prompts.
+
+The feedback/summary is embedded in Qdrant immediately. Future Qwen prompts retrieve the
 most relevant memories and prepend them to the system prompt. The feedback is
 also available to the DeepSeek planning graph.
 

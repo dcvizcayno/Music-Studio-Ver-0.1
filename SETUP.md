@@ -205,7 +205,12 @@ npm run dev        # http://127.0.0.1:3000, proxies /api to :8000
    - Production-only bracket tags are normalized to `[Verse]` / `[Chorus]` before
      generation; this is the practical lyric-adherence lever, not a hard guarantee.
    - Voice timbre is not cloned.
-3. The Library keeps completed jobs and allows export to WAV/MP3/FLAC.
+3. Both generators default to **360 seconds**. Use the Target Duration slider to
+   sample a shorter render; the UI warns that full generation can take 6 minutes.
+   Working Title / Cover title is blank initially and required before generating.
+   Male is the default Vocal Gender.
+
+4. The Library keeps completed jobs and allows export to WAV/MP3/FLAC.
 
    **Split Stems** runs local `demucs-onnx` (`htdemucs_6s`, CPU) into Lead Vocal,
    Drums, Bass, Guitar, Piano/Keyboard and Synth/Other. Each is a 48 kHz WAV with
@@ -226,7 +231,7 @@ npm run dev        # http://127.0.0.1:3000, proxies /api to :8000
 
    **Use as Inspiration** prefills Text to Song with the song's style/tempo for a
    brand-new melody and lyrics; it never reuses the reference audio or melody.
-4. Voice Personas/voice cloning are **not** a YuE2 feature. A real sample-based
+5. Voice Personas/voice cloning are **not** a YuE2 feature. A real sample-based
    persona needs a separate singing-voice-conversion model such as
    [Seed-VC](https://github.com/Plachtaa/seed-vc) (Mac M-series supported), used on
    the vocal stem and remixed with the other stems. This is not part of v0.1; see

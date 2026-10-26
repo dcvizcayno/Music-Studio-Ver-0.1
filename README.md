@@ -19,10 +19,11 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
 ```
 
 - **Text-to-song:** style + lyrics → YuE2 plan → 48 kHz stereo audio.
-  Includes a lyrics/BPM auto-duration estimate (bars × 4 × 60 ÷ BPM, up to 6 min),
-  a **Plan score / No score** toggle, a mutually exclusive **Vocal Gender**
-  selector (fed directly to YuE2 as “male vocal” / “female vocal”), and a
-  rendered, playable **Interactive ABC score** (abcjs + local FluidR3 piano
+  Includes a **6-minute default** target duration (30–360 s, override for a quick
+  sample), a required working title, **Male** as the default vocal gender, a
+  mutually exclusive **Vocal Gender** selector, a **Summarize lyrics** action
+  that saves an emotional/story summary to memory, a **Plan score / No score**
+  toggle, and a rendered, playable **Interactive ABC score** (abcjs + local FluidR3 piano
   samples, no CDN request), with copy/download of the ABC source.
 - **Library stems:** local 6-stem split with htdemucs_6s ONNX
   (Lead Vocal, Drums, Bass, Guitar, Piano/Keyboard, Synth/Other) plus individual
@@ -44,10 +45,15 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
   opens Text to Song with style/BPM prefilled and a new-lyrics prompt.
 - **Cover:** reference audio → SheetSage2 melody transcription → YuE2.
   Includes Max/Beast Mode (vocal consistency), Style Influence and Audio Influence
-  sliders, 60 MB uploads, 6-minute covers, and production-tag cleanup so YuE2 sees
-  clean `[Verse]` / `[Chorus]` section tags. A master limiter targets -1 dBFS true peak.
+  sliders, a **15–360 s Target Duration slider (default 360)**, a required cover
+  title, 60 MB uploads, production-tag lyric cleanup, and an **Interactive ABC
+  score** with copy/download. A master limiter targets -1 dBFS true peak.
 - **Interactive score:** generated ABC is engraved as sheet music and can be played
-  with a local piano soundfont. The raw ABC remains available for copying or export.
+  with a local piano soundfont. Both Text to Song and Cover Studio show Song Title,
+  Date Written, BPM and Key, and keep the raw ABC available for copying/export.
+- **Live resources:** the global status bar polls CPU %, Apple GPU % (via IOReg),
+  Ollama readiness and MLX readiness every 3 seconds; the generation banner shows
+  elapsed time as `(0m 00s)`.
 - **Air-gapped runtime.** No remote fonts or CDNs; HF offline env is enforced for
   covers and stems. See [docs/AIRGAP.md](docs/AIRGAP.md).
 - **No native voice cloning.** YuE2 conditions on text style and an optional ABC
