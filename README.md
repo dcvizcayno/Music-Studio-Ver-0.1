@@ -30,7 +30,7 @@ React 19 + Vite  →  FastAPI (127.0.0.1:8000)  →  mlx-Yue subprocess  →  Me
   associated Mnemosyne memories), and **SONG DETAILS** on the right. The style
   field is editable; Re-run/Inspiration use the edited style. Audio exports show
   an estimated size for the selected format, and every Interactive ABC score can
-  be downloaded as a metadata-rich PDF.
+  be downloaded as a complete multi-page PDF with title/date/BPM/key.
 - **Library stems:** local 6-stem split with htdemucs_6s ONNX
   (Lead Vocal, Drums, Bass, Guitar, Piano/Keyboard, Synth/Other) plus individual
   48 kHz WAV players/downloads. Backing-vocal, kick/snare/hi-hat and
